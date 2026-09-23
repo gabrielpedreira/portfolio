@@ -257,6 +257,44 @@
   function observeReveal() { $$(".reveal:not(.is-in)").forEach((el) => revealObs.observe(el)); }
   $$(".section__head, .about").forEach((el) => el.classList.add("reveal"));
 
+  /* ---------- Currículo (menu PT/EN) ---------- */
+  function closeCv(except) {
+    $$("[data-cv]").forEach((c) => {
+      if (c === except) return;
+      $(".cv__menu", c).hidden = true;
+      $(".cv__toggle", c).setAttribute("aria-expanded", "false");
+    });
+  }
+  document.addEventListener("click", (e) => {
+    const box = e.target.closest("[data-cv]");
+    const tog = e.target.closest(".cv__toggle");
+    if (tog) {
+      const menu = $(".cv__menu", box), open = menu.hidden;
+      closeCv(box);
+      menu.hidden = !open;
+      tog.setAttribute("aria-expanded", String(open));
+      if (open) {
+        // o idioma atual do site aparece primeiro e em destaque
+        const items = $$("a", menu);
+        items.forEach((a) => a.classList.toggle("is-current", a.dataset.cvLang === lang));
+        const cur = items.find((a) => a.dataset.cvLang === lang);
+        if (cur) { menu.prepend(cur); cur.focus(); }
+      }
+      return;
+    }
+    if (!box || e.target.closest(".cv__menu a")) closeCv();
+  });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeCv(); });
+  document.addEventListener("langchange", () => {
+    // na faixa de contato, o botão principal é o do idioma atual
+    $$(".cvband__actions a").forEach((a) => {
+      const on = a.dataset.cvLang === lang;
+      a.classList.toggle("btn--primary", on);
+      a.classList.toggle("btn--ghost", !on);
+      if (on) a.parentNode.prepend(a);
+    });
+  });
+
   $("#year").textContent = new Date().getFullYear();
   applyLang();
 })();

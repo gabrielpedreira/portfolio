@@ -20,7 +20,7 @@ window.I18N = {
     "work.soon": "Em breve", "work.empty": "Trabalhos desta categoria chegando em breve.",
     "work.noimg": "imagem em breve", "work.code": "Código", "work.view": "Ver", "work.play": "Jogar",
     "links.title": "Links & contato", "links.lead": "Código, arte, carreira e contato — onde me encontrar.",
-    "links.soon": "em breve", "links.copy": "copiar", "links.copied": "copiado!",
+    "links.soon": "em breve", "cv.btn": "Currículo", "cv.meta": "PDF · 2 páginas", "cv.title": "Currículo", "cv.lead": "Experiência, formação e stack em uma versão para imprimir ou enviar.", "links.copy": "copiar", "links.copied": "copiado!",
     "footer.made": "Feito com HTML, CSS, JS e uma aranha."
   },
   en: {
@@ -42,7 +42,7 @@ window.I18N = {
     "work.soon": "Coming soon", "work.empty": "Work in this category is coming soon.",
     "work.noimg": "image coming soon", "work.code": "Code", "work.view": "View", "work.play": "Play",
     "links.title": "Links & contact", "links.lead": "Code, art, career and contact — where to find me.",
-    "links.soon": "coming soon", "links.copy": "copy", "links.copied": "copied!",
+    "links.soon": "coming soon", "cv.btn": "Resume", "cv.meta": "PDF · 2 pages", "cv.title": "Resume", "cv.lead": "Experience, education and stack in a version you can print or forward.", "links.copy": "copy", "links.copied": "copied!",
     "footer.made": "Made with HTML, CSS, JS and a spider."
   }
 };

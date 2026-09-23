@@ -45,6 +45,15 @@
       <div class="hero__cta">
         <a class="btn btn--primary" href="#trabalhos" data-i18n="hero.cta1">Ver trabalhos</a>
         <a class="btn btn--ghost" href="#links" data-i18n="hero.cta2">Contato & links</a>
+        <div class="cv" data-cv>
+          <button class="btn btn--ghost cv__toggle" type="button" aria-haspopup="true" aria-expanded="false">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v11m0 0 4.5-4.5M12 14 7.5 9.5M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span data-i18n="cv.btn">Currículo</span><span class="cv__caret" aria-hidden="true">▾</span>
+          </button>
+          <div class="cv__menu" role="menu" hidden>
+            <a role="menuitem" href="assets/docs/Gabriel-Pedreira-Curriculo-PT.pdf" download data-cv-lang="pt"><b class="mono">PT</b><span>Português<small data-i18n="cv.meta">PDF · 2 páginas</small></span></a>
+            <a role="menuitem" href="assets/docs/Gabriel-Pedreira-Resume-EN.pdf" download data-cv-lang="en"><b class="mono">EN</b><span>English<small data-i18n="cv.meta">PDF · 2 páginas</small></span></a>
+          </div>
+        </div>
       </div>
       <ul class="hero__disciplines mono" id="disciplines"></ul>
       </div>
@@ -112,6 +121,16 @@
       </header>
       <p class="section__lead" data-i18n="links.lead">Código, arte e carreira — onde encontrar cada parte.</p>
       <div class="links" id="linksGrid"></div>
+      <div class="cvband">
+        <div class="cvband__text">
+          <strong data-i18n="cv.title">Currículo</strong>
+          <span data-i18n="cv.lead">Experiência, formação e stack em uma versão para imprimir ou enviar.</span>
+        </div>
+        <div class="cvband__actions">
+          <a class="btn btn--primary" href="assets/docs/Gabriel-Pedreira-Curriculo-PT.pdf" download data-cv-lang="pt"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v11m0 0 4.5-4.5M12 14 7.5 9.5M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Português</span><small class="mono">PDF</small></a>
+          <a class="btn btn--ghost" href="assets/docs/Gabriel-Pedreira-Resume-EN.pdf" download data-cv-lang="en"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v11m0 0 4.5-4.5M12 14 7.5 9.5M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg><span>English</span><small class="mono">PDF</small></a>
+        </div>
+      </div>
     </section>
   </main>
 

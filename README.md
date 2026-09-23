@@ -15,3 +15,7 @@ conteúdo em `js/data.js`.
 
 ## Rodar localmente
 Abra `index.html` no navegador. Para ver a aranha na hora: `index.html?aranha=0`.
+
+## Direitos autorais
+© 2026 Gabriel Pedreira. Todos os direitos reservados. A arte, as animações (incluindo a aranha)
+e o código deste repositório não podem ser reutilizados sem autorização — veja [LICENSE](LICENSE).

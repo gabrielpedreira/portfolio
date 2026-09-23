@@ -21,7 +21,8 @@ window.I18N = {
     "work.noimg": "imagem em breve", "work.code": "Código", "work.view": "Ver", "work.play": "Jogar",
     "links.title": "Links & contato", "links.lead": "Código, arte, carreira e contato — onde me encontrar.",
     "links.soon": "em breve", "cv.btn": "Currículo", "cv.meta": "PDF · 2 páginas", "cv.title": "Currículo", "cv.lead": "Experiência, formação e stack em uma versão para imprimir ou enviar.", "links.copy": "copiar", "links.copied": "copiado!",
-    "footer.made": "Feito com HTML, CSS, JS e uma aranha."
+    "footer.made": "Feito com HTML, CSS, JS e uma aranha.",
+    "footer.rights": "Arte e animações protegidas por direitos autorais."
   },
   en: {
     "nav.about": "About", "nav.stack": "Stack", "nav.work": "Work", "nav.links": "Links",
@@ -43,6 +44,7 @@ window.I18N = {
     "work.noimg": "image coming soon", "work.code": "Code", "work.view": "View", "work.play": "Play",
     "links.title": "Links & contact", "links.lead": "Code, art, career and contact — where to find me.",
     "links.soon": "coming soon", "cv.btn": "Resume", "cv.meta": "PDF · 2 pages", "cv.title": "Resume", "cv.lead": "Experience, education and stack in a version you can print or forward.", "links.copy": "copy", "links.copied": "copied!",
-    "footer.made": "Made with HTML, CSS, JS and a spider."
+    "footer.made": "Made with HTML, CSS, JS and a spider.",
+    "footer.rights": "Art and animations protected by copyright."
   }
 };

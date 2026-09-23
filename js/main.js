@@ -182,6 +182,16 @@
   });
   $("#catBack").addEventListener("click", () => openCategory(null));
   // Link direto: site.com/#jogos abre a categoria
+  // Ao ATUALIZAR a página tudo volta ao estado inicial: topo, sem categoria aberta, sem #âncora.
+  // (Um link direto novo, ex.: site.com/#jogos, continua abrindo a categoria.)
+  if ("scrollRestoration" in history) history.scrollRestoration = "manual";
+  const navEntry = performance.getEntriesByType?.("navigation")?.[0];
+  const isReload = navEntry ? navEntry.type === "reload" : performance.navigation?.type === 1;
+  if (isReload && location.hash) {
+    try { history.replaceState(null, "", location.pathname + location.search); } catch {}
+  }
+  addEventListener("load", () => { if (!location.hash) scrollTo({ top: 0, behavior: "instant" }); });
+  scrollTo(0, 0);
   const initial = location.hash.slice(1);
   if (CATEGORIES.some((c) => c.id === initial)) activeFilter = initial;
 

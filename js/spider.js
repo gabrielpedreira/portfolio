@@ -30,7 +30,7 @@
     viewY: 0.28,          // altura de parada na tela (fração da janela, posição da fiandeira)
     entrySpeed: 110,      // px/s — primeira descida (lenta)
     followSpeed: 420,     // px/s — acompanhando a rolagem
-    moveThreshold: 24,    // px de diferença para voltar a se mover
+    moveThreshold: 6,     // px de diferença para voltar a se mover (rolagem lenta já ativa a descida)
     bodyMax: 110,         // largura máxima do corpo na tela (px)
     bodyMin: 46,
     gravity: 2600,        // px/s² na queda
@@ -119,6 +119,8 @@
   let wx = 0, wy = 0, rot = 0, path = [], side = Math.random() < .5 ? "left" : "right"; // parede
   let anim = null, frame = 0, frameTime = 0;
   let bounceT = 0, bounceA = 0, clock = 0, firstTrip = true, pet = 0;
+  let lastScroll = 0;
+  addEventListener("scroll", () => (lastScroll = performance.now()), { passive: true });
   const onWeb = () => ["moving", "stopping", "idle", "pointing"].includes(mode);
 
   function measure() {
@@ -208,8 +210,11 @@
         vel += (desired - vel) * Math.min(1, dt * 5);
         pos += vel * dt;
         peakSpeed = Math.max(peakSpeed, Math.abs(vel));
-        if (Math.abs(d) < 1.5 && Math.abs(vel) < 14) { pos = t; vel = 0; firstTrip = false; setMode("stopping"); }
-      } else pos = t;
+        const scrolling = performance.now() - lastScroll < 220;   // não "para" enquanto a tela ainda rola
+        if (!scrolling && Math.abs(d) < 1.5 && Math.abs(vel) < 14) { pos = t; vel = 0; firstTrip = false; setMode("stopping"); }
+      }
+      // parada: fica presa no fio (posição no documento); se a tela rolar, a diferença cresce
+      // e ela volta a subir/descer com webdown — inclusive em rolagem lenta
       return;
     }
 

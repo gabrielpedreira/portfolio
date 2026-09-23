@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Gabriel Pedreira — Dev & Artista</title>
+  <meta name="description" content="Portfólio de Gabriel Pedreira: desenvolvimento de software e jogos, ilustração, concept art, animação e escultura." />
+  <link rel="icon" href="favicon.ico" sizes="any" />
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/img/favicon-32.png" />
+  <link rel="apple-touch-icon" href="assets/img/apple-touch-icon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div class="bg-grid" aria-hidden="true"></div>
+  <div class="bg-glow" aria-hidden="true"></div>
+
+  <header class="nav" id="topo">
+    <a class="nav__logo" href="#inicio">GP<span>.</span></a>
+    <nav class="nav__links" aria-label="Principal">
+      <a href="#sobre" data-i18n="nav.about">Sobre</a>
+      <a href="#stack" data-i18n="nav.stack">Stack</a>
+      <a href="#trabalhos" data-i18n="nav.work">Trabalhos</a>
+      <a href="#links" data-i18n="nav.links">Links</a>
+    </nav>
+    <button class="lang" id="langToggle" aria-label="Trocar idioma / Switch language">
+      <span data-lang="pt">PT</span><span class="lang__sep">/</span><span data-lang="en">EN</span>
+    </button>
+  </header>
+
+  <main>
+    <!-- HERO -->
+    <section class="hero" id="inicio" data-topic="inicio">
+      <div class="hero__content">
+      <p class="eyebrow mono" data-i18n="hero.eyebrow">// desenvolvedor · ilustrador · animador</p>
+      <h1 class="hero__title">
+        <span data-i18n="hero.hi">Olá, eu sou</span>
+        <strong>Gabriel Pedreira</strong>
+      </h1>
+      <p class="hero__lead" data-i18n="hero.lead">
+        Construo software e mundos. Programo ferramentas e jogos, e desenho, animo e esculpo os personagens que vivem neles.
+      </p>
+      <div class="hero__cta">
+        <a class="btn btn--primary" href="#trabalhos" data-i18n="hero.cta1">Ver trabalhos</a>
+        <a class="btn btn--ghost" href="#links" data-i18n="hero.cta2">Contato & links</a>
+      </div>
+      <ul class="hero__disciplines mono" id="disciplines"></ul>
+      </div>
+      <figure class="hero__photo">
+        <img src="assets/img/gabriel.webp" alt="Gabriel Pedreira" width="900" height="1080" />
+        <figcaption class="mono">GB Dracco</figcaption>
+      </figure>
+      <a class="scroll-hint" href="#sobre" aria-label="Rolar"><span></span></a>
+    </section>
+
+    <!-- SOBRE -->
+    <section class="section" id="sobre" data-topic="sobre">
+      <header class="section__head">
+        <span class="section__num mono">01</span>
+        <h2 data-i18n="about.title">Sobre</h2>
+      </header>
+      <div class="about">
+        <div class="about__text">
+          <p data-i18n="about.p1">Sou desenvolvedor de software no Rio de Janeiro, estudante de Análise e Desenvolvimento de Sistemas, e artista visual. Meu foco é a interseção entre código e arte — especialmente no mercado de jogos.</p>
+          <p data-i18n="about.p2">No dia a dia desenvolvo sistemas web; nos projetos pessoais construo ferramentas de criação (como um software de desenho e animação 2D em Rust) e um jogo autoral. Do outro lado, faço ilustração, concept art, animação frame a frame e escultura.</p>
+          <p data-i18n="about.p3">A aranha que anda por este site foi desenhada e animada por mim — ela é a prova de que as duas metades conversam.</p>
+        </div>
+        <div class="about__side">
+        <dl class="about__facts">
+          <div><dt data-i18n="about.f1k">Base</dt><dd data-i18n="about.f1v">Rio de Janeiro, Brasil</dd></div>
+          <div><dt data-i18n="about.f2k">Atual</dt><dd data-i18n="about.f2v">Assistente de Desenvolvimento de Software</dd></div>
+          <div><dt data-i18n="about.f3k">Formação</dt><dd data-i18n="about.f3v">Tecnólogo em ADS (em andamento)</dd></div>
+          <div><dt data-i18n="about.f4k">Foco</dt><dd data-i18n="about.f4v">Desenvolvimento de software · Jogos · Arte</dd></div>
+        </dl>
+        </div>
+      </div>
+    </section>
+
+    <!-- STACK -->
+    <section class="section" id="stack" data-topic="stack">
+      <header class="section__head">
+        <span class="section__num mono">02</span>
+        <h2 data-i18n="stack.title">Stack</h2>
+      </header>
+      <div class="stack" id="stackGrid"></div>
+    </section>
+
+    <!-- TRABALHOS -->
+    <section class="section" id="trabalhos" data-topic="trabalhos">
+      <header class="section__head">
+        <span class="section__num mono">03</span>
+        <h2 data-i18n="work.title">Trabalhos</h2>
+      </header>
+      <div class="cats" id="catsGrid"></div>
+      <div class="catview" id="catView" hidden>
+        <div class="catview__head">
+          <button class="catview__back" id="catBack" type="button"><span aria-hidden="true">←</span> <span data-i18n="work.back">Todas as categorias</span></button>
+          <h3 class="catview__title" id="catTitle"></h3>
+          <p class="catview__blurb" id="catBlurb"></p>
+        </div>
+        <div class="works" id="worksGrid"></div>
+      </div>
+    </section>
+
+    <!-- LINKS -->
+    <section class="section" id="links" data-topic="links">
+      <header class="section__head">
+        <span class="section__num mono">04</span>
+        <h2 data-i18n="links.title">Links</h2>
+      </header>
+      <p class="section__lead" data-i18n="links.lead">Código, arte e carreira — onde encontrar cada parte.</p>
+      <div class="links" id="linksGrid"></div>
+    </section>
+  </main>
+
+  <!-- Chão: a aranha cai e anda sobre ele -->
+  <div class="floor" id="floor" aria-hidden="true"></div>
+
+  <footer class="footer mono">
+    <span>© <span id="year"></span> Gabriel Pedreira</span>
+    <span data-i18n="footer.made">Feito com HTML, CSS, JS e uma aranha.</span>
+  </footer>
+
+  <!-- Lightbox -->
+  <div class="lightbox" id="lightbox" hidden>
+    <button class="lightbox__close" aria-label="Fechar">×</button>
+    <button class="lightbox__nav lightbox__prev" aria-label="Anterior">‹</button>
+    <figure><img alt="" /><figcaption></figcaption></figure>
+    <button class="lightbox__nav lightbox__next" aria-label="Próximo">›</button>
+  </div>
+
+  <!-- Camada da personagem (fase 3) -->
+  <div id="spider-layer" aria-hidden="true"></div>
+
+  <script src="js/i18n.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/main.js"></script>
+  <script src="js/spider.js"></script>
+</body>
+</html>

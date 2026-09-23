@@ -1,0 +1,10 @@
+# Originais em alta resolução ficam só no seu PC — o site usa as versões otimizadas em assets/works
+trabalhos/**
+!trabalhos/**/
+!trabalhos/**/LEIA-ME.txt
+animação site/
+_to_delete/
+build.log
+deploy/
+chão.png
+Claude outputs/

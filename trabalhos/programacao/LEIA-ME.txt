@@ -1,0 +1,10 @@
+Coloque aqui os arquivos desta categoria.
+
+Sugestão de organização (uma subpasta por trabalho):
+  nome-do-trabalho/
+    capa.jpg        -> imagem de capa do card (proporção ~4:3, até ~1600px, JPG/WEBP)
+    01.jpg, 02.jpg  -> imagens extras (galeria)
+    info.txt        -> título, ano, ferramentas usadas, descrição curta, links
+
+Depois é só avisar o Claude: ele lê os arquivos e cadastra o trabalho em js/data.js.
+Vídeos/GIFs de animação: prefira MP4 ou WEBM curtos (< 10 MB) em vez de GIF.

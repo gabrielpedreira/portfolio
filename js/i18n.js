@@ -1,0 +1,48 @@
+/* Textos fixos da interface em PT e EN.
+   As chaves batem com data-i18n="..." no index.html. */
+window.I18N = {
+  pt: {
+    "nav.about": "Sobre", "nav.stack": "Stack", "nav.work": "Trabalhos", "nav.links": "Links",
+    "hero.eyebrow": "// desenvolvedor · ilustrador · animador",
+    "hero.hi": "Olá, eu sou",
+    "hero.lead": "Construo software e mundos. Programo ferramentas e jogos, e desenho, animo e esculpo os personagens que vivem neles.",
+    "hero.cta1": "Ver trabalhos", "hero.cta2": "Contato & links",
+    "about.title": "Sobre",
+    "about.p1": "Sou desenvolvedor de software no Rio de Janeiro, estudante de Análise e Desenvolvimento de Sistemas, e artista visual. Meu foco é a interseção entre código e arte — especialmente no mercado de jogos.",
+    "about.p2": "No dia a dia desenvolvo sistemas web; nos projetos pessoais construo ferramentas de criação (como um software de desenho e animação 2D em Rust) e um jogo autoral. Do outro lado, faço ilustração, concept art, animação frame a frame e escultura.",
+    "about.p3": "A aranha que anda por este site foi desenhada e animada por mim — ela é a prova de que as duas metades conversam.",
+    "about.f1k": "Base", "about.f1v": "Rio de Janeiro, Brasil",
+    "about.f2k": "Atual", "about.f2v": "Assistente de Desenvolvimento de Software",
+    "about.f3k": "Formação", "about.f3v": "Tecnólogo em ADS (em andamento)",
+    "about.f4k": "Foco", "about.f4v": "Desenvolvimento de software · Jogos · Arte",
+    "stack.title": "Stack", "stack.learning": "estudando",
+    "work.title": "Trabalhos", "work.all": "Todos", "work.back": "Todas as categorias", "work.items": "trabalhos", "work.item": "trabalho", "work.open": "Ver",
+    "work.soon": "Em breve", "work.empty": "Trabalhos desta categoria chegando em breve.",
+    "work.noimg": "imagem em breve", "work.code": "Código", "work.view": "Ver", "work.play": "Jogar",
+    "links.title": "Links & contato", "links.lead": "Código, arte, carreira e contato — onde me encontrar.",
+    "links.soon": "em breve", "links.copy": "copiar", "links.copied": "copiado!",
+    "footer.made": "Feito com HTML, CSS, JS e uma aranha."
+  },
+  en: {
+    "nav.about": "About", "nav.stack": "Stack", "nav.work": "Work", "nav.links": "Links",
+    "hero.eyebrow": "// developer · illustrator · animator",
+    "hero.hi": "Hi, I'm",
+    "hero.lead": "I build software and worlds. I code tools and games, and I draw, animate and sculpt the characters that live in them.",
+    "hero.cta1": "See my work", "hero.cta2": "Contact & links",
+    "about.title": "About",
+    "about.p1": "I'm a software developer based in Rio de Janeiro, a Systems Analysis & Development student, and a visual artist. My focus is where code meets art — especially in the games industry.",
+    "about.p2": "By day I build web systems; in personal projects I make creative tools (like a 2D drawing and animation app in Rust) and an original game. On the other side, I do illustration, concept art, frame-by-frame animation and sculpture.",
+    "about.p3": "The spider crawling around this site was drawn and animated by me — proof that both halves talk to each other.",
+    "about.f1k": "Based in", "about.f1v": "Rio de Janeiro, Brazil",
+    "about.f2k": "Now", "about.f2v": "Software Development Assistant",
+    "about.f3k": "Education", "about.f3v": "Systems Analysis & Development (in progress)",
+    "about.f4k": "Focus", "about.f4v": "Software development · Games · Art",
+    "stack.title": "Stack", "stack.learning": "learning",
+    "work.title": "Work", "work.all": "All", "work.back": "All categories", "work.items": "works", "work.item": "work", "work.open": "Open",
+    "work.soon": "Coming soon", "work.empty": "Work in this category is coming soon.",
+    "work.noimg": "image coming soon", "work.code": "Code", "work.view": "View", "work.play": "Play",
+    "links.title": "Links & contact", "links.lead": "Code, art, career and contact — where to find me.",
+    "links.soon": "coming soon", "links.copy": "copy", "links.copied": "copied!",
+    "footer.made": "Made with HTML, CSS, JS and a spider."
+  }
+};

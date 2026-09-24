@@ -84,7 +84,8 @@
     soltando:       { src: S + "soltando_teia.png",     frames: 7,  fps: 10, loop: false },
     pend_brava:     { src: S + "pendurada_brava.png",   frames: 3,  fps: 6,  loop: true },
     wpp:            { src: S + "wpp.png",               frames: 8,  fps: 8,  loop: true },
-    wppteia:        { src: S + "wppteia.png",           frames: 4,  fps: 5,  loop: true }   // símbolo (canvas próprio)
+    wppteia:        { src: S + "wppteia.png",           frames: 4,  fps: 5,  loop: true },  // símbolo preso na teia (canvas próprio)
+    simbolo:        { src: S + "simbolo_wpp.png",       frames: 1,  fps: 1,  loop: true, still: true }  // símbolo solto (estático)
   };
   window.SPIDER_SPRITES = SHEETS;
   // ponto de referência de cada animação no quadro (pés no chão / centro do corpo na parede)
@@ -104,6 +105,7 @@
   const APEX = { x: 371, y: 191 };     // ponto onde as teias se juntam no topo do símbolo (wppteia)
   const SYM_BOTTOM = 424;              // base do símbolo no quadro wppteia
   const SYM_HIT = [268, 246, 476, 428];   // área clicável do símbolo no quadro wppteia
+  const SYM_C = { x: 373, y: 340 }, SYM_HALF = 88;  // centro/meia-largura do símbolo (coords do wppteia) p/ o simbolo_wpp estático
   const WPP_HIT = [322, 364, 470, 470];   // área clicável do símbolo no sprite wpp (aranha segurando)
   const WA = ((window.LINKS || []).find((l) => l.id === "whatsapp") || {}).url || "https://wa.me/5521971577527";
 
@@ -227,7 +229,10 @@
   const lowX = () => webX() + (lowPt().x - ANCHOR.x) * scale;             // x da teia de baixo (tela)
   const lowY = () => pos + (lowPt().y - ANCHOR.y) * scale;                // y da ponta da teia de baixo (documento)
   const holdGap = () => 55 * scale;
-  function floorApexY() { return floorLine() - (SYM_BOTTOM - APEX.y) * scale * CONFIG.size.wppteia; }
+  const symKs = () => scale * CONFIG.size.wppteia;
+  // símbolo parado no chão: base do simbolo_wpp encostada na linha do chão
+  function floorApexY() { return floorLine() - (SYM_HALF + SYM_C.y - APEX.y) * symKs(); }
+  const symBottom = () => sym.y + (SYM_C.y - APEX.y + SYM_HALF) * symKs();   // base do símbolo (documento)
 
   function startShoot() {
     pendingShoot = false;
@@ -250,10 +255,18 @@
     }
     if (sym.state === "held") { sym.x = lowX(); sym.y = lowY() + holdGap() + (onWeb() ? bounceOffset() : 0); return; }
     if (sym.state === "drop") {
-      sym.vy += CONFIG.dropGravity * dt;
+      // cai em linha reta girando; no chão quica e sai rolando para a esquerda
+      sym.t = (sym.t || 0) + dt;
+      sym.vy = Math.min(sym.maxV || 2600, sym.vy + (sym.g || CONFIG.dropGravity) * dt);
       sym.x += sym.vx * dt; sym.y += sym.vy * dt; sym.rot += sym.rotV * dt;
-      const sy = sym.y - window.scrollY;
-      if (sy > innerHeight + 120 || sy < -400 || sym.x < -160) sym.state = "gone";
+      const fl = floorLine();
+      if (sym.vy > 0 && symBottom() >= fl) {
+        sym.y -= symBottom() - fl;
+        sym.vy = Math.abs(sym.vy) > 120 ? -Math.abs(sym.vy) * 0.38 : 0;          // quica
+        sym.vx = Math.min(sym.vx, -430);                                          // e vai para a esquerda
+        sym.rotV = -Math.max(5, Math.abs(sym.rotV));
+      }
+      if (sym.x < -SYM_HALF * 2 * symKs() || sym.t > 10) sym.state = "gone";
     }
   }
 
@@ -271,10 +284,12 @@
   threadHit.addEventListener("pointerdown", (e) => {
     if (!onWeb()) return;
     // segurando o símbolo (pendurado ou nas patas): ele cai de lado e some junto com a queda
-    if (variant === "hold") Object.assign(sym, { state: "drop", vx: -170, vy: -40, rotV: -4.2 });
+    // cai um pouco mais rápido que a aranha → chega ao chão antes e quica para a esquerda
+    const withSpider = { state: "drop", t: 0, vx: 0, vy: 0, rotV: -3.2, g: CONFIG.gravity * 1.25, maxV: CONFIG.maxFall * 1.2 };
+    if (variant === "hold") Object.assign(sym, withSpider);
     else if (variant === "wpp") {
       const ks = scale * CONFIG.size.wppteia;
-      Object.assign(sym, { state: "drop", rot: 0, vx: -170, vy: -40, rotV: -4.2,
+      Object.assign(sym, withSpider, { rot: 0,
         x: webX() + (396 - ANCHOR.x) * scale,                                  // centro do símbolo nas patas
         y: pos + (416 - ANCHOR.y) * scale - (340 - APEX.y) * ks });
     }
@@ -293,7 +308,7 @@
     lowHit.style.cursor = CURSOR.scissorsClosed;
     setTimeout(() => (lowHit.style.cursor = CURSOR.scissorsOpen), 350);
     variant = "normal";
-    Object.assign(sym, { state: "drop", vx: -170, vy: -40, rotV: -4.2 });
+    Object.assign(sym, { state: "drop", t: 0, vx: 0, vy: 0, rotV: -3.2, g: CONFIG.dropGravity, maxV: 2600 });   // reto, girando
     cutAt = performance.now();
     bounceA = 0;
     setMode("drop");
@@ -394,7 +409,7 @@
       gx += CONFIG.runSpeed * dt;
       if (gx - FW * scale * CONFIG.size.andando * 0.5 > viewW) {
         setMode("gone");
-        if (sym.state === "gone") Object.assign(sym, { state: "floor", rot: 0 });   // ela saiu do chão → símbolo volta
+        Object.assign(sym, { state: "floor", rot: 0, vx: 0, vy: 0 });   // ela saiu do chão → símbolo volta ao lugar original
       }
     }
     if (mode === "gone" && timer >= CONFIG.returnAfter) enterView(true);
@@ -550,13 +565,19 @@
     let hit = null;
     if (symOn) {
       const ax = sym.x, ay = sym.y - sy;
-      symCanvas.style.transformOrigin = `${APEX.x * ks}px ${APEX.y * ks}px`;
+      const onWebSym = sym.state === "pull" || sym.state === "held";   // preso na teia → wppteia; solto → simbolo_wpp
+      symCanvas.style.transformOrigin = `${SYM_C.x * ks}px ${SYM_C.y * ks}px`;   // gira pelo centro do símbolo
       symCanvas.style.transform = `translate(${ax - APEX.x * ks}px, ${ay - APEX.y * ks}px) rotate(${sym.rot}rad)`;
       symCtx.setTransform(1, 0, 0, 1, 0, 0);
       symCtx.clearRect(0, 0, symCanvas.width, symCanvas.height);
-      symCtx.drawImage(sheets.wppteia, sym.frame * FW, 0, FW, FH, 0, 0, symCanvas.width, symCanvas.height);
+      if (onWebSym) symCtx.drawImage(sheets.wppteia, sym.frame * FW, 0, FW, FH, 0, 0, symCanvas.width, symCanvas.height);
+      else {
+        const k = symCanvas.width / FW;
+        symCtx.drawImage(sheets.simbolo, (SYM_C.x - SYM_HALF) * k, (SYM_C.y - SYM_HALF) * k, SYM_HALF * 2 * k, SYM_HALF * 2 * k);
+      }
+      const box = onWebSym ? SYM_HIT : [SYM_C.x - SYM_HALF, SYM_C.y - SYM_HALF, SYM_C.x + SYM_HALF, SYM_C.y + SYM_HALF];
       if (sym.state !== "drop")
-        hit = [ax + (SYM_HIT[0] - APEX.x) * ks, ay + (SYM_HIT[1] - APEX.y) * ks, (SYM_HIT[2] - SYM_HIT[0]) * ks, (SYM_HIT[3] - SYM_HIT[1]) * ks];
+        hit = [ax + (box[0] - APEX.x) * ks, ay + (box[1] - APEX.y) * ks, (box[2] - box[0]) * ks, (box[3] - box[1]) * ks];
     }
     if (variant === "wpp" && onWeb()) {         // símbolo desenhado no próprio sprite da aranha
       const off = bounceOffset(), x = webX(), y = pos - sy + off;

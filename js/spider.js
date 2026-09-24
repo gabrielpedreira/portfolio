@@ -18,11 +18,12 @@
        até a área que o visitante está vendo; para num canto (alterna esquerda/direita) → idle_parede.
      - Só sai do lugar quando some da tela (rolou e escondeu ela) → vem andando de novo.
      - Mouse sobre ela → anda para um lado aleatório (sem sair da tela) → idle_parede.
-   WHATSAPP (após 3 min pendurada sem interação)
-     - Ela dispara uma teia do meio das patas até o símbolo do WhatsApp que fica no chão,
+   WHATSAPP (após 2 min pendurada sem interação, ou 3 min andando na parede)
+     - disparandoteia (6 fps): o fio desce devagar do meio das patas até o símbolo no chão;
        puxa (puxando_teia) enquanto o símbolo sobe → segurandowpp_inicio → segurandowpp_idle (loop).
      - Cortar a teia de baixo: soltandoteia (loop) enquanto o símbolo cai girando para a esquerda;
-       depois penduradabrava subindo até sumir; 7 s depois ela desce com o símbolo (wpp, loop).
+       fica parada 4 s, sobe (penduradabrava) até sumir; depois desce com o símbolo (wpp, loop).
+     - Na parede: depois de 3 min ela sai da tela, desce pela teia e repete o disparo.
      - O símbolo é clicável (abre o WhatsApp) no chão, sendo puxado, segurado e no sprite wpp.
      - Teste rápido: ?wpp=10 faz isso acontecer depois de 10 s.
    TAMANHO: cada spritesheet foi desenhada numa escala; CONFIG.size iguala todas ao
@@ -48,8 +49,12 @@
     wallSpeed: 230,       // px/s andando na parede
     // escala de cada animação em relação à teia (ajuste fino visual)
     size: { brava: 0.68, empe: 0.68, virada: 0.68, andando: 0.5, cima: 1.0, parede: 1.05, wppteia: 0.82 },
-    wppAfter: 180000,     // ms pendurada sem interação até buscar o WhatsApp (3 min)
-    shootTime: 650,       // ms para a teia disparada chegar ao símbolo
+    wppAfter: 120000,     // ms pendurada sem interação até buscar o WhatsApp (2 min)
+    wallWppAfter: 180000, // ms andando na parede até sair e buscar o WhatsApp (3 min)
+    shootSpeed: 520,      // px/s do fio descendo no disparo (devagar)
+    shootMin: 1800,       // ms mínimo do disparo
+    shootMax: 9000,       // ms máximo do disparo (chão muito longe)
+    stayAfterCut: 4000,   // ms parada depois de cortarem o símbolo, antes de subir
     pullMinSpeed: 360,    // px/s mínimo puxando o símbolo
     pullMaxTime: 7000,    // ms máximo puxando (distâncias grandes puxam mais rápido)
     dropGravity: 1900,    // px/s² na queda do símbolo
@@ -72,6 +77,7 @@
     andando:        { src: S + "andando_perfil.png",    frames: 16, fps: 50, loop: true },
     cima:           { src: S + "andando_cima.png",      frames: 10, fps: 16, loop: true },
     parede:         { src: S + "idle_parede.png",       frames: 16, fps: 10, loop: true },
+    disparo:        { src: S + "disparando_teia.png",   frames: 4,  fps: 6,  loop: true },
     puxando:        { src: S + "puxando_teia.png",      frames: 6,  fps: 8,  loop: true },
     seg_inicio:     { src: S + "segurando_inicio.png",  frames: 10, fps: 8,  loop: false },
     seg_idle:       { src: S + "segurando_idle.png",    frames: 6,  fps: 8,  loop: true },
@@ -118,6 +124,7 @@
   const params = new URLSearchParams(location.search);
   const delay = params.has("aranha") ? Number(params.get("aranha")) || 0 : CONFIG.startDelay;
   if (params.has("wpp")) CONFIG.wppAfter = (Number(params.get("wpp")) || 10) * 1000;
+  if (params.has("parede")) CONFIG.wallWppAfter = (Number(params.get("parede")) || 10) * 1000;
 
   /* ---------- Elementos ---------- */
   const mk = (cls) => { const e = document.createElement("div"); e.className = cls; layer.append(e); return e; };
@@ -161,7 +168,7 @@
   let anim = null, frame = 0, frameTime = 0;
   let bounceT = 0, bounceA = 0, clock = 0, firstTrip = true, pet = 0;
   let variant = "normal";              // teia: normal | hold (segurando o símbolo) | wpp (desce com o símbolo)
-  let idleAcc = 0, shot = 0;
+  let idleAcc = 0, shot = 0, shotDur = 1000, cutAt = 0, wallAcc = 0, exiting = false, pendingShoot = false;
   const sym = { state: "floor", x: 0, y: 0, vx: 0, vy: 0, rot: 0, rotV: 0, frame: 0, ft: 0, speed: 0 };
   let lastScroll = 0;
   addEventListener("scroll", () => (lastScroll = performance.now()), { passive: true });
@@ -202,7 +209,7 @@
     const map = { moving: web || "webdown", stopping: web || "webstop", idle: web || "webidle", pointing: web || "apontar_inicio",
                   falling: "fall", angry: "brava", calm: "empe", turning: "virada", walking: "andando",
                   wallWalk: "cima", wallIdle: "parede",
-                  shoot: "puxando", pull: "puxando", holdStart: "seg_inicio", drop: "soltando", angryUp: "pend_brava" };
+                  shoot: "disparo", pull: "puxando", holdStart: "seg_inicio", drop: "soltando", angryUp: "pend_brava" };
     if (map[m]) play(map[m]);
     if (m === "moving") { peakSpeed = 0; bounceA = 0; }
     if (m === "stopping") { bounceT = 0; bounceA = reduced ? 0 : Math.max(8, Math.min(18, peakSpeed * 0.08)); }
@@ -215,20 +222,25 @@
   }
 
   /* ---------- Símbolo do WhatsApp ---------- */
-  const lowX = () => webX() + (LOW.x - ANCHOR.x) * scale;                 // x da teia de baixo (tela)
-  const lowY = () => pos + (LOW.y - ANCHOR.y) * scale;                    // y da ponta da teia de baixo (documento)
+  const DISP_LOW = { x: 404, y: 414 };  // de onde o fio sai no disparandoteia (entre as patas)
+  const lowPt = () => (mode === "shoot" ? DISP_LOW : LOW);
+  const lowX = () => webX() + (lowPt().x - ANCHOR.x) * scale;             // x da teia de baixo (tela)
+  const lowY = () => pos + (lowPt().y - ANCHOR.y) * scale;                // y da ponta da teia de baixo (documento)
   const holdGap = () => 55 * scale;
   function floorApexY() { return floorLine() - (SYM_BOTTOM - APEX.y) * scale * CONFIG.size.wppteia; }
 
   function startShoot() {
-    sym.x = lowX(); sym.y = floorApexY(); shot = 0;
+    pendingShoot = false;
     setMode("shoot");
+    sym.x = lowX(); sym.y = floorApexY(); shot = 0;
+    shotDur = Math.max(CONFIG.shootMin, Math.min(CONFIG.shootMax, (sym.y - lowY()) / CONFIG.shootSpeed * 1000));
   }
 
   function updateSym(dt) {
     sym.ft += dt;
     while (sym.ft >= 1 / SHEETS.wppteia.fps) { sym.ft -= 1 / SHEETS.wppteia.fps; sym.frame = (sym.frame + 1) % SHEETS.wppteia.frames; }
     if (sym.state === "floor") { sym.x = lowX(); sym.y = floorApexY(); return; }
+    if (mode === "shoot") { sym.x = lowX(); return; }
     if (sym.state === "pull") {
       const pulse = reduced ? 1 : 0.35 + 0.65 * Math.abs(Math.sin(clock * 5.2));   // puxadas
       sym.y -= sym.speed * pulse * dt;
@@ -259,6 +271,7 @@
   threadHit.addEventListener("pointerdown", (e) => {
     if (!onWeb() || variant === "hold") return;
     variant = "normal"; idleAcc = 0;
+    if (sym.state === "gone") sym.state = "floor";   // o símbolo volta ao chão para uma próxima vez
     threadHit.style.cursor = CURSOR.scissorsClosed;
     setTimeout(() => (threadHit.style.cursor = CURSOR.scissorsOpen), 350);
     const anchorScreen = pos - window.scrollY + bounceOffset();
@@ -274,6 +287,7 @@
     setTimeout(() => (lowHit.style.cursor = CURSOR.scissorsOpen), 350);
     variant = "normal";
     Object.assign(sym, { state: "drop", vx: -170, vy: -40, rotV: -4.2 });
+    cutAt = performance.now();
     bounceA = 0;
     setMode("drop");
   });
@@ -293,7 +307,7 @@
     updateSym(dt);
 
     if (mode === "shoot") {
-      shot = Math.min(1, shot + dt * 1000 / CONFIG.shootTime);
+      shot = Math.min(1, shot + dt * 1000 / shotDur);
       if (shot >= 1) {
         sym.state = "pull";
         sym.speed = Math.max(CONFIG.pullMinSpeed, (sym.y - lowY()) / (CONFIG.pullMaxTime / 1000));
@@ -303,15 +317,17 @@
     }
     if (mode === "pull" || mode === "holdStart" || mode === "drop") return;   // presa no fio
     if (mode === "angryUp") {
-      if (pos - window.scrollY + (460 - ANCHOR.y) * scale > -10) pos -= CONFIG.riseSpeed * dt;  // sobe até sumir
-      if (timer >= CONFIG.wppReturn) { variant = "wpp"; respawn(); }
+      const waited = performance.now() - cutAt >= CONFIG.stayAfterCut;       // fica parada 4 s
+      const visible = pos - window.scrollY + (460 - ANCHOR.y) * scale > -10;
+      if (waited && visible) pos -= CONFIG.riseSpeed * dt;                    // depois sobe até sumir
+      if (waited && !visible && timer >= CONFIG.wppReturn) { variant = "wpp"; respawn(); }
       return;
     }
 
     if (onWeb()) {
       if (variant === "normal" && sym.state === "floor") {
         idleAcc += dt * 1000;
-        if (idleAcc >= CONFIG.wppAfter && (mode === "idle" || mode === "pointing")) { startShoot(); return; }
+        if ((pendingShoot || idleAcc >= CONFIG.wppAfter) && (mode === "idle" || mode === "pointing")) { startShoot(); return; }
       }
       const t = target();
       let d = t - pos;
@@ -355,6 +371,10 @@
       return;
     }
 
+    if (mode === "wallWalk" || mode === "wallIdle") {
+      wallAcc += dt * 1000;
+      if (!exiting && wallAcc >= CONFIG.wallWppAfter && sym.state === "floor") exitWall();
+    }
     if (mode === "wallWalk") { walkPath(dt); return; }
     if (mode === "wallIdle") {
       const sy = window.scrollY, m = 40;
@@ -397,14 +417,24 @@
     side = side === "left" ? "right" : "left";
     const tx = side === "left" ? clampX(gutter / 2) : clampX(viewW - gutter / 2);
     const ty = sy + innerHeight * rnd(0.3, 0.7);
-    if (fromFloor) { wx = viewW + off; wy = sy + innerHeight * rnd(0.4, 0.8); }         // volta pela direita
+    if (fromFloor) { wallAcc = 0; wx = viewW + off; wy = sy + innerHeight * rnd(0.4, 0.8); }         // volta pela direita
     else if (wy < sy) wy = Math.max(wy, sy - off);                                       // vem de cima
     else if (wy > sy + innerHeight) wy = Math.min(wy, sy + innerHeight + off);           // vem de baixo
     goTo(tx, ty);
   }
 
+  // depois de 3 min na parede: anda para fora da tela pelo lado mais perto
+  function exitWall() {
+    exiting = true;
+    const sy = window.scrollY, off = 200 * scale + 60;
+    const x = wx < viewW / 2 ? -off : viewW + off;
+    path = makePath(wx, wy, x, Math.max(sy + 40, Math.min(sy + innerHeight - 40, wy + rnd(-120, 120))));
+    setMode("wallWalk");
+  }
+
   // mouse em cima: foge para um lado aleatório, sem sair da tela
   function flee() {
+    if (exiting) return;
     const sy = window.scrollY, h = halfBody();
     for (let i = 0; i < 12; i++) {
       const a = rnd(0, Math.PI * 2), d = rnd(160, 320);
@@ -416,7 +446,13 @@
 
   function walkPath(dt) {
     const p = path[0];
-    if (!p) { setMode("wallIdle"); return; }
+    if (!p) {
+      if (exiting) {                              // saiu da tela → volta descendo pela teia e dispara
+        exiting = false; variant = "normal"; pendingShoot = true; idleAcc = 0;
+        respawn();
+      } else setMode("wallIdle");
+      return;
+    }
     const dx = p.x - wx, dy = p.y - wy, d = Math.hypot(dx, dy);
     const step = CONFIG.wallSpeed * dt;
     // vira suavemente para a direção do movimento (sprite olha para cima)
@@ -434,7 +470,7 @@
 
   /* ---------- Quadros ---------- */
   function advance(dt) {
-    if (!anim || mode === "shoot") return;      // disparando: segura o 1º quadro de puxando
+    if (!anim) return;
     const s = SHEETS[anim];
     frameTime += dt;
     const step = 1 / s.fps;
@@ -491,7 +527,7 @@
     if (showLow) {
       const full = Math.max(0, sym.y - sy - ly);
       lowThread.style.transform = `translate(${lx}px, ${ly}px)`;
-      lowThread.style.height = (mode === "shoot" ? full * (1 - Math.pow(1 - shot, 3)) : full) + "px";
+      lowThread.style.height = (mode === "shoot" ? full * shot : full) + "px";   // disparo: desce devagar, constante
       lowHit.style.transform = `translate(${lx - 9}px, ${ly + 4}px)`;
       lowHit.style.height = Math.max(0, full - 8) + "px";
     }
@@ -546,7 +582,7 @@
     setMode("moving");
   }
 
-  window.__aranha = () => ({ mode, anim, frame, variant, sym: sym.state, beside: onWeb() && besideClickable() });
+  window.__aranha = () => ({ mode, anim, frame, variant, sym: sym.state, exiting, pendingShoot, beside: onWeb() && besideClickable() });
 
   /* ---------- Início ---------- */
   Promise.all(Object.entries(SHEETS).map(([k, s]) => load(s.src).then((img) => [k, img])))

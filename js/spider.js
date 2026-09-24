@@ -195,7 +195,8 @@
     symCanvas.style.height = FH * ks + "px";
   }
 
-  const webX = () => gutter / 2;
+  // centro da margem esquerda, mas nunca perto demais da borda (a aranha não pode ser cortada)
+  const webX = () => Math.max(gutter / 2, BODY_SRC_W * scale * 0.55 + 4);
   const target = () => window.scrollY + innerHeight * CONFIG.viewY;
   function floorLine() {  // meio vertical da imagem do chão (documento)
     const f = document.getElementById("floor");

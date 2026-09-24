@@ -33,10 +33,28 @@
 
   const TXT = {
     pt: { kills: "ZUMBIS", restart: "Recomeçar", loading: "Carregando…", close: "Fechar jogo",
-          walkR: "anda pra direita", walkL: "anda pra esquerda", shoot: "atira", reload: "recarrega", quit: "fecha o jogo" },
+          walkR: "anda pra direita", walkL: "anda pra esquerda", shoot: "atira", reload: "recarrega", quit: "fecha o jogo",
+          rotate: "Gire o celular para jogar", quitBtn: "Fechar" },
     en: { kills: "ZOMBIES", restart: "Restart", loading: "Loading…", close: "Close game",
-          walkR: "walk right", walkL: "walk left", shoot: "shoot", reload: "reload", quit: "close the game" }
+          walkR: "walk right", walkL: "walk left", shoot: "shoot", reload: "reload", quit: "close the game",
+          rotate: "Rotate your phone to play", quitBtn: "Close" }
   };
+  // celular/tablet: tela cheia, pede para girar e mostra botões na tela
+  const TOUCH = () => matchMedia("(pointer: coarse)").matches || new URLSearchParams(location.search).has("touch");
+  const PORTRAIT = () => TOUCH() && innerHeight > innerWidth;
+  function enterFull() {
+    const el = document.documentElement;
+    const req = el.requestFullscreen || el.webkitRequestFullscreen;
+    try {
+      const pr = req?.call(el, { navigationUI: "hide" });
+      Promise.resolve(pr).then(() => screen.orientation?.lock?.("landscape")).catch(() => {});
+    } catch {}
+  }
+  function exitFull() {
+    try { screen.orientation?.unlock?.(); } catch {}
+    const fe = document.fullscreenElement || document.webkitFullscreenElement;
+    if (fe) (document.exitFullscreen || document.webkitExitFullscreen)?.call(document)?.catch?.(() => {});
+  }
   const lang = () => (document.documentElement.lang || "pt").startsWith("en") ? "en" : "pt";
   const T = (k) => TXT[lang()][k];
 
@@ -67,6 +85,22 @@
           <button class="game__restart" type="button" hidden></button>
           <button class="game__x" type="button">×</button>
         </div>
+        <div class="game__pad" aria-hidden="true">
+          <div class="game__pad-l">
+            <button type="button" data-k="left">◀</button>
+            <button type="button" data-k="right">▶</button>
+          </div>
+          <div class="game__pad-r">
+            <button type="button" data-k="reload" class="is-reload"><b>S</b><small data-t="reload"></small></button>
+            <button type="button" data-k="shoot" class="is-shoot"><b>D</b><small data-t="shoot"></small></button>
+          </div>
+          <button type="button" data-k="quit" class="game__pad-quit">✕</button>
+        </div>
+        <div class="game__rotate">
+          <div class="game__rotate-ico" aria-hidden="true"></div>
+          <p class="mono" data-t="rotate"></p>
+          <button type="button" class="game__rotate-close mono" data-t="quitBtn"></button>
+        </div>
         <div class="game__band mono">
           <button type="button" data-k="left"><kbd>←</kbd><span data-t="walkL"></span></button>
           <button type="button" data-k="right"><kbd>→</kbd><span data-t="walkR"></span></button>
@@ -82,23 +116,34 @@
     restartBtn = root.querySelector(".game__restart");
     loadingEl = root.querySelector(".game__loading");
     band = root.querySelector(".game__band");
+    root.querySelector(".game__rotate-close").addEventListener("click", close);
     restartBtn.addEventListener("click", () => { reset(); canvas.focus?.(); });
     root.querySelector(".game__x").addEventListener("click", close);
     root.querySelector(".game__backdrop").addEventListener("click", close);
     // controles por toque/clique na tarja
-    band.addEventListener("pointerdown", (e) => {
+    // (multitoque: cada dedo solta só o seu botão)
+    const onPad = (e) => {
       const b = e.target.closest("[data-k]"); if (!b) return;
       e.preventDefault();
-      const k = b.dataset.k;
+      const k = b.dataset.k, id = e.pointerId;
       if (k === "quit") return close();
       press(k, true); b.classList.add("is-on");
-      const up = () => { press(k, false); b.classList.remove("is-on"); removeEventListener("pointerup", up); removeEventListener("pointercancel", up); };
+      navigator.vibrate?.(8);
+      const up = (ev) => {
+        if (ev.pointerId !== id) return;
+        press(k, false); b.classList.remove("is-on");
+        removeEventListener("pointerup", up); removeEventListener("pointercancel", up);
+      };
       addEventListener("pointerup", up); addEventListener("pointercancel", up);
-    });
-    band.addEventListener("contextmenu", (e) => e.preventDefault());
+    };
+    for (const el of [band, root.querySelector(".game__pad")]) {
+      el.addEventListener("pointerdown", onPad);
+      el.addEventListener("contextmenu", (e) => e.preventDefault());
+    }
     labels();
     document.addEventListener("langchange", labels);
     addEventListener("resize", fit);
+    addEventListener("orientationchange", () => setTimeout(fit, 250));
   }
   function labels() {
     if (!root) return;
@@ -109,6 +154,7 @@
   }
   function fit() {
     if (!canvas || root.hidden) return;
+    root.classList.toggle("is-touch", TOUCH());
     const r = canvas.getBoundingClientRect();
     const dpr = Math.min(devicePixelRatio || 1, 2);
     const w = Math.max(W, Math.min(1920, Math.round(r.width * dpr)));
@@ -428,6 +474,7 @@
     if (!running) return;
     const dt = Math.min(0.05, (now - last) / 1000 || 0);
     last = now;
+    if (PORTRAIT()) { raf = requestAnimationFrame(tick); return; }   // pausado até girar a tela
     updateLorena(dt);
     updateZombies(dt);
     if (over.t >= 0) { over.t += dt; over.fade = Math.min(0.78, over.t / 2.2); }
@@ -440,12 +487,14 @@
   async function open(from) {
     build();
     opener = from || null;
+    root.classList.toggle("is-touch", TOUCH());
+    if (TOUCH()) enterFull();             // precisa ser no mesmo toque do botão
     root.hidden = false;
     document.documentElement.classList.add("game-open");
     // o painel "cresce" a partir do botão clicado
     const r = from?.getBoundingClientRect?.();
     const pr = panel.getBoundingClientRect();
-    if (r && pr.width) {
+    if (r && pr.width && !TOUCH()) {
       const dx = r.left + r.width / 2 - (pr.left + pr.width / 2);
       const dy = r.top + r.height / 2 - (pr.top + pr.height / 2);
       panel.animate([
@@ -470,6 +519,8 @@
     running = false; cancelAnimationFrame(raf);
     removeEventListener("keydown", onKey, true);
     removeEventListener("keyup", onKey, true);
+    Object.keys(input).forEach((k) => (input[k] = false));
+    exitFull();
     const done = () => { root.hidden = true; document.documentElement.classList.remove("game-open"); opener?.focus?.({ preventScroll: true }); };
     const a = panel.animate([{ transform: "none", opacity: 1 }, { transform: "scale(.92)", opacity: 0 }], { duration: 200, easing: "ease-in" });
     a.onfinish = done;

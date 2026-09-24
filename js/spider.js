@@ -58,6 +58,7 @@
     pullMinSpeed: 360,    // px/s mínimo puxando o símbolo
     pullMaxTime: 7000,    // ms máximo puxando (distâncias grandes puxam mais rápido)
     dropGravity: 1900,    // px/s² na queda do símbolo
+    symSpin: 1.3,         // rad/s — giro lento (anti-horário) do símbolo caindo
     riseSpeed: 260,       // px/s subindo brava
     wppReturn: 7000,      // ms até voltar descendo com o símbolo
     threadColor: "rgba(236, 232, 222, .6)"
@@ -264,7 +265,7 @@
         sym.y -= symBottom() - fl;
         sym.vy = Math.abs(sym.vy) > 120 ? -Math.abs(sym.vy) * 0.38 : 0;          // quica
         sym.vx = Math.min(sym.vx, -430);                                          // e vai para a esquerda
-        sym.rotV = -Math.max(5, Math.abs(sym.rotV));
+        sym.rotV = -CONFIG.symSpin * 2.2;                                        // rola para a esquerda (anti-horário)
       }
       if (sym.x < -SYM_HALF * 2 * symKs() || sym.t > 10) sym.state = "gone";
     }
@@ -285,7 +286,7 @@
     if (!onWeb()) return;
     // segurando o símbolo (pendurado ou nas patas): ele cai de lado e some junto com a queda
     // cai um pouco mais rápido que a aranha → chega ao chão antes e quica para a esquerda
-    const withSpider = { state: "drop", t: 0, vx: 0, vy: 0, rotV: -3.2, g: CONFIG.gravity * 1.25, maxV: CONFIG.maxFall * 1.2 };
+    const withSpider = { state: "drop", t: 0, vx: 0, vy: 0, rotV: -CONFIG.symSpin, g: CONFIG.gravity * 1.25, maxV: CONFIG.maxFall * 1.2 };
     if (variant === "hold") Object.assign(sym, withSpider);
     else if (variant === "wpp") {
       const ks = scale * CONFIG.size.wppteia;
@@ -308,7 +309,7 @@
     lowHit.style.cursor = CURSOR.scissorsClosed;
     setTimeout(() => (lowHit.style.cursor = CURSOR.scissorsOpen), 350);
     variant = "normal";
-    Object.assign(sym, { state: "drop", t: 0, vx: 0, vy: 0, rotV: -3.2, g: CONFIG.dropGravity, maxV: 2600 });   // reto, girando
+    Object.assign(sym, { state: "drop", t: 0, vx: 0, vy: 0, rotV: -CONFIG.symSpin, g: CONFIG.dropGravity, maxV: 2600 });   // reto, girando devagar (anti-horário)
     cutAt = performance.now();
     bounceA = 0;
     setMode("drop");

@@ -214,7 +214,7 @@
     if (m === "moving") { peakSpeed = 0; bounceA = 0; }
     if (m === "stopping") { bounceT = 0; bounceA = reduced ? 0 : Math.max(8, Math.min(18, peakSpeed * 0.08)); }
     layer.classList.toggle("is-grounded", !onWeb() && m !== "falling");
-    threadHit.hidden = !(onWeb() && variant !== "hold");
+    threadHit.hidden = !onWeb();
     lowHit.hidden = !(onWeb() && variant === "hold");
     bodyHit.hidden = !(m === "angry" || m === "wallIdle");
     bodyHit.style.cursor = m === "angry" ? CURSOR.handOpen : "default";
@@ -253,7 +253,7 @@
       sym.vy += CONFIG.dropGravity * dt;
       sym.x += sym.vx * dt; sym.y += sym.vy * dt; sym.rot += sym.rotV * dt;
       const sy = sym.y - window.scrollY;
-      if (sy > innerHeight + 120 || sym.x < -160) sym.state = "gone";
+      if (sy > innerHeight + 120 || sy < -400 || sym.x < -160) sym.state = "gone";
     }
   }
 
@@ -269,9 +269,16 @@
 
   /* ---------- Interações ---------- */
   threadHit.addEventListener("pointerdown", (e) => {
-    if (!onWeb() || variant === "hold") return;
+    if (!onWeb()) return;
+    // segurando o símbolo (pendurado ou nas patas): ele cai de lado e some junto com a queda
+    if (variant === "hold") Object.assign(sym, { state: "drop", vx: -170, vy: -40, rotV: -4.2 });
+    else if (variant === "wpp") {
+      const ks = scale * CONFIG.size.wppteia;
+      Object.assign(sym, { state: "drop", rot: 0, vx: -170, vy: -40, rotV: -4.2,
+        x: webX() + (396 - ANCHOR.x) * scale,                                  // centro do símbolo nas patas
+        y: pos + (416 - ANCHOR.y) * scale - (340 - APEX.y) * ks });
+    }
     variant = "normal"; idleAcc = 0;
-    if (sym.state === "gone") sym.state = "floor";   // o símbolo volta ao chão para uma próxima vez
     threadHit.style.cursor = CURSOR.scissorsClosed;
     setTimeout(() => (threadHit.style.cursor = CURSOR.scissorsOpen), 350);
     const anchorScreen = pos - window.scrollY + bounceOffset();
@@ -362,7 +369,6 @@
       const fl = floorLine();
       if (pos + (FALL_BOTTOM - ANCHOR.y) * scale >= fl) {   // tocou o chão
         gx = Math.max(webX() + (FW / 2 - ANCHOR.x) * scale, 205 * scale + 12); // mesmo x, sem cortar na borda
-        if (sym.state === "floor") gx = Math.max(gx, lowX() + 190 * scale);  // não cai em cima do símbolo
         gy = fl;
         bounceT = 0; bounceA = reduced ? 0 : 10;             // pequeno quique ao cair
         cut = null;
@@ -386,7 +392,10 @@
     if (mode === "calm" && timer >= CONFIG.calmTime) setMode("turning");
     if (mode === "walking") {
       gx += CONFIG.runSpeed * dt;
-      if (gx - FW * scale * CONFIG.size.andando * 0.5 > viewW) setMode("gone");
+      if (gx - FW * scale * CONFIG.size.andando * 0.5 > viewW) {
+        setMode("gone");
+        if (sym.state === "gone") Object.assign(sym, { state: "floor", rot: 0 });   // ela saiu do chão → símbolo volta
+      }
     }
     if (mode === "gone" && timer >= CONFIG.returnAfter) enterView(true);
   }
@@ -535,7 +544,8 @@
 
     // símbolo (canvas próprio) e área clicável só no desenho do símbolo
     const ks = scale * CONFIG.size.wppteia;
-    const symOn = sym.state !== "gone" && layer.classList.contains("is-on");
+    const onFloor = ["angry", "calm", "turning", "walking"].includes(mode);   // aranha no chão: símbolo escondido
+    const symOn = sym.state !== "gone" && !(onFloor && sym.state === "floor") && layer.classList.contains("is-on");
     symCanvas.hidden = !symOn;
     let hit = null;
     if (symOn) {

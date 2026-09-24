@@ -253,7 +253,6 @@ window.LINKS = [
   { id: "github",     name: "GitHub",     handle: "@gabrielpedreira",    url: "https://github.com/gabrielpedreira" },
   { id: "linkedin",   name: "LinkedIn",   handle: "in/gabriel-pedreira", url: "https://www.linkedin.com/in/gabriel-pedreira" },
   { id: "artstation", name: "ArtStation", handle: "gabriel_dracco",      url: "https://gabriel_dracco.artstation.com/" },
-  { id: "itch",       name: "itch.io",    handle: "gabriel-dracco",      url: "https://gabriel-dracco.itch.io/" },
   { id: "whatsapp",   name: "WhatsApp",   handle: "(21) 97157-7527",
     url: "https://wa.me/5521971577527?text=" + encodeURIComponent("Olá, Gabriel! Vi seu portfólio e gostaria de conversar.") },
   { id: "email",      name: "E-mail",     handle: "gabrielpedreira.programador@gmail.com",

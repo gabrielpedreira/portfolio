@@ -18,6 +18,13 @@
        até a área que o visitante está vendo; para num canto (alterna esquerda/direita) → idle_parede.
      - Só sai do lugar quando some da tela (rolou e escondeu ela) → vem andando de novo.
      - Mouse sobre ela → anda para um lado aleatório (sem sair da tela) → idle_parede.
+   WHATSAPP (após 3 min pendurada sem interação)
+     - Ela dispara uma teia do meio das patas até o símbolo do WhatsApp que fica no chão,
+       puxa (puxando_teia) enquanto o símbolo sobe → segurandowpp_inicio → segurandowpp_idle (loop).
+     - Cortar a teia de baixo: soltandoteia (loop) enquanto o símbolo cai girando para a esquerda;
+       depois penduradabrava subindo até sumir; 7 s depois ela desce com o símbolo (wpp, loop).
+     - O símbolo é clicável (abre o WhatsApp) no chão, sendo puxado, segurado e no sprite wpp.
+     - Teste rápido: ?wpp=10 faz isso acontecer depois de 10 s.
    TAMANHO: cada spritesheet foi desenhada numa escala; CONFIG.size iguala todas ao
    tamanho dela na teia (1 = mesmo tamanho da teia).
 
@@ -40,7 +47,14 @@
     returnAfter: 7000,    // ms depois de sumir para voltar pela parede
     wallSpeed: 230,       // px/s andando na parede
     // escala de cada animação em relação à teia (ajuste fino visual)
-    size: { brava: 0.68, empe: 0.68, virada: 0.68, andando: 0.5, cima: 1.0, parede: 1.05 },
+    size: { brava: 0.68, empe: 0.68, virada: 0.68, andando: 0.5, cima: 1.0, parede: 1.05, wppteia: 0.82 },
+    wppAfter: 180000,     // ms pendurada sem interação até buscar o WhatsApp (3 min)
+    shootTime: 650,       // ms para a teia disparada chegar ao símbolo
+    pullMinSpeed: 360,    // px/s mínimo puxando o símbolo
+    pullMaxTime: 7000,    // ms máximo puxando (distâncias grandes puxam mais rápido)
+    dropGravity: 1900,    // px/s² na queda do símbolo
+    riseSpeed: 260,       // px/s subindo brava
+    wppReturn: 7000,      // ms até voltar descendo com o símbolo
     threadColor: "rgba(236, 232, 222, .6)"
   };
 
@@ -57,7 +71,14 @@
     virada:         { src: S + "virada_lateral.png",    frames: 3,  fps: 8,  loop: false },
     andando:        { src: S + "andando_perfil.png",    frames: 16, fps: 50, loop: true },
     cima:           { src: S + "andando_cima.png",      frames: 10, fps: 16, loop: true },
-    parede:         { src: S + "idle_parede.png",       frames: 16, fps: 10, loop: true }
+    parede:         { src: S + "idle_parede.png",       frames: 16, fps: 10, loop: true },
+    puxando:        { src: S + "puxando_teia.png",      frames: 6,  fps: 8,  loop: true },
+    seg_inicio:     { src: S + "segurando_inicio.png",  frames: 10, fps: 8,  loop: false },
+    seg_idle:       { src: S + "segurando_idle.png",    frames: 6,  fps: 8,  loop: true },
+    soltando:       { src: S + "soltando_teia.png",     frames: 7,  fps: 10, loop: true },
+    pend_brava:     { src: S + "pendurada_brava.png",   frames: 3,  fps: 6,  loop: true },
+    wpp:            { src: S + "wpp.png",               frames: 8,  fps: 8,  loop: true },
+    wppteia:        { src: S + "wppteia.png",           frames: 4,  fps: 5,  loop: true }   // símbolo (canvas próprio)
   };
   window.SPIDER_SPRITES = SHEETS;
   // ponto de referência de cada animação no quadro (pés no chão / centro do corpo na parede)
@@ -73,7 +94,12 @@
   const FEET = 459;                    // linha dos pés nas animações de chão
   const FALL_BOTTOM = 450;             // parte mais baixa do corpo na queda
   const BODY_SRC_W = 200;              // largura aproximada do corpo no quadro
-  const HIT = { x: 205, y: 165, w: 400, h: 300 };  // área clicável do corpo no chão (coords do quadro)
+  const LOW = { x: 396, y: 448 };      // ponta da teia de baixo (entre as patas) em puxando/segurando
+  const APEX = { x: 371, y: 191 };     // ponto onde as teias se juntam no topo do símbolo (wppteia)
+  const SYM_BOTTOM = 424;              // base do símbolo no quadro wppteia
+  const SYM_HIT = [268, 246, 476, 428];   // área clicável do símbolo no quadro wppteia
+  const WPP_HIT = [322, 364, 470, 470];   // área clicável do símbolo no sprite wpp (aranha segurando)
+  const WA = ((window.LINKS || []).find((l) => l.id === "whatsapp") || {}).url || "https://wa.me/5521971577527";
 
   /* ---------- Cursores (SVG) ---------- */
   const svg = (body, hx, hy, fb) =>
@@ -91,6 +117,7 @@
   const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
   const params = new URLSearchParams(location.search);
   const delay = params.has("aranha") ? Number(params.get("aranha")) || 0 : CONFIG.startDelay;
+  if (params.has("wpp")) CONFIG.wppAfter = (Number(params.get("wpp")) || 10) * 1000;
 
   /* ---------- Elementos ---------- */
   const mk = (cls) => { const e = document.createElement("div"); e.className = cls; layer.append(e); return e; };
@@ -103,6 +130,20 @@
   canvas.className = "spider-sprite";
   layer.append(canvas);
   const bodyHit = mk("spider-body-hit");
+  // símbolo do WhatsApp + teia de baixo
+  const lowThread = mk("spider-thread");
+  lowThread.style.background = CONFIG.threadColor;
+  const lowHit = mk("spider-thread-hit");
+  lowHit.style.cursor = CURSOR.scissorsOpen;
+  const symCanvas = document.createElement("canvas");
+  symCanvas.className = "spider-sprite spider-sym";
+  layer.insertBefore(symCanvas, canvas);
+  const symCtx = symCanvas.getContext("2d");
+  const waHit = document.createElement("a");
+  waHit.className = "spider-wpp-hit";
+  waHit.href = WA; waHit.target = "_blank"; waHit.rel = "noopener";
+  waHit.setAttribute("aria-label", "WhatsApp");
+  layer.append(waHit);
   const ctx = canvas.getContext("2d");
   threadHit.style.cursor = CURSOR.scissorsOpen;
   bodyHit.style.cursor = CURSOR.handOpen;
@@ -119,9 +160,13 @@
   let wx = 0, wy = 0, rot = 0, path = [], side = Math.random() < .5 ? "left" : "right"; // parede
   let anim = null, frame = 0, frameTime = 0;
   let bounceT = 0, bounceA = 0, clock = 0, firstTrip = true, pet = 0;
+  let variant = "normal";              // teia: normal | hold (segurando o símbolo) | wpp (desce com o símbolo)
+  let idleAcc = 0, shot = 0;
+  const sym = { state: "floor", x: 0, y: 0, vx: 0, vy: 0, rot: 0, rotV: 0, frame: 0, ft: 0, speed: 0 };
   let lastScroll = 0;
   addEventListener("scroll", () => (lastScroll = performance.now()), { passive: true });
   const onWeb = () => ["moving", "stopping", "idle", "pointing"].includes(mode);
+  const hanging = () => onWeb() || ["shoot", "pull", "holdStart", "drop", "angryUp"].includes(mode);
 
   function measure() {
     dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -133,6 +178,11 @@
     canvas.height = Math.round(FH * scale * dpr);
     canvas.style.width = FW * scale + "px";
     canvas.style.height = FH * scale + "px";
+    const ks = scale * CONFIG.size.wppteia;
+    symCanvas.width = Math.round(FW * ks * dpr);
+    symCanvas.height = Math.round(FH * ks * dpr);
+    symCanvas.style.width = FW * ks + "px";
+    symCanvas.style.height = FH * ks + "px";
   }
 
   const webX = () => gutter / 2;
@@ -148,17 +198,51 @@
 
   function setMode(m) {
     mode = m; timer = 0;
-    const map = { moving: "webdown", stopping: "webstop", idle: "webidle", pointing: "apontar_inicio",
+    const web = variant === "hold" ? "seg_idle" : variant === "wpp" ? "wpp" : null;
+    const map = { moving: web || "webdown", stopping: web || "webstop", idle: web || "webidle", pointing: web || "apontar_inicio",
                   falling: "fall", angry: "brava", calm: "empe", turning: "virada", walking: "andando",
-                  wallWalk: "cima", wallIdle: "parede" };
+                  wallWalk: "cima", wallIdle: "parede",
+                  shoot: "puxando", pull: "puxando", holdStart: "seg_inicio", drop: "soltando", angryUp: "pend_brava" };
     if (map[m]) play(map[m]);
     if (m === "moving") { peakSpeed = 0; bounceA = 0; }
     if (m === "stopping") { bounceT = 0; bounceA = reduced ? 0 : Math.max(8, Math.min(18, peakSpeed * 0.08)); }
     layer.classList.toggle("is-grounded", !onWeb() && m !== "falling");
-    threadHit.hidden = !onWeb();
+    threadHit.hidden = !(onWeb() && variant !== "hold");
+    lowHit.hidden = !(onWeb() && variant === "hold");
     bodyHit.hidden = !(m === "angry" || m === "wallIdle");
     bodyHit.style.cursor = m === "angry" ? CURSOR.handOpen : "default";
-    thread.hidden = !onWeb();
+    thread.hidden = !hanging();
+  }
+
+  /* ---------- Símbolo do WhatsApp ---------- */
+  const lowX = () => webX() + (LOW.x - ANCHOR.x) * scale;                 // x da teia de baixo (tela)
+  const lowY = () => pos + (LOW.y - ANCHOR.y) * scale;                    // y da ponta da teia de baixo (documento)
+  const holdGap = () => 55 * scale;
+  function floorApexY() { return floorLine() - (SYM_BOTTOM - APEX.y) * scale * CONFIG.size.wppteia; }
+
+  function startShoot() {
+    sym.x = lowX(); sym.y = floorApexY(); shot = 0;
+    setMode("shoot");
+  }
+
+  function updateSym(dt) {
+    sym.ft += dt;
+    while (sym.ft >= 1 / SHEETS.wppteia.fps) { sym.ft -= 1 / SHEETS.wppteia.fps; sym.frame = (sym.frame + 1) % SHEETS.wppteia.frames; }
+    if (sym.state === "floor") { sym.x = lowX(); sym.y = floorApexY(); return; }
+    if (sym.state === "pull") {
+      const pulse = reduced ? 1 : 0.35 + 0.65 * Math.abs(Math.sin(clock * 5.2));   // puxadas
+      sym.y -= sym.speed * pulse * dt;
+      sym.x = lowX();
+      if (sym.y <= lowY() + holdGap()) { sym.y = lowY() + holdGap(); sym.state = "held"; setMode("holdStart"); }
+      return;
+    }
+    if (sym.state === "held") { sym.x = lowX(); sym.y = lowY() + holdGap() + (onWeb() ? bounceOffset() : 0); return; }
+    if (sym.state === "drop") {
+      sym.vy += CONFIG.dropGravity * dt;
+      sym.x += sym.vx * dt; sym.y += sym.vy * dt; sym.rot += sym.rotV * dt;
+      const sy = sym.y - window.scrollY;
+      if (sy > innerHeight + 120 || sym.x < -160) { sym.state = "gone"; setMode("angryUp"); }
+    }
   }
 
   function besideClickable() {
@@ -173,7 +257,8 @@
 
   /* ---------- Interações ---------- */
   threadHit.addEventListener("pointerdown", (e) => {
-    if (!onWeb()) return;
+    if (!onWeb() || variant === "hold") return;
+    variant = "normal"; idleAcc = 0;
     threadHit.style.cursor = CURSOR.scissorsClosed;
     setTimeout(() => (threadHit.style.cursor = CURSOR.scissorsOpen), 350);
     const anchorScreen = pos - window.scrollY + bounceOffset();
@@ -181,6 +266,16 @@
     cut = { t: 0, top: cutY, low: anchorScreen - cutY };
     fallV = 0; vel = 0; bounceA = 0;
     setMode("falling");
+  });
+  // cortar a teia que segura o símbolo
+  lowHit.addEventListener("pointerdown", () => {
+    if (!(onWeb() && variant === "hold")) return;
+    lowHit.style.cursor = CURSOR.scissorsClosed;
+    setTimeout(() => (lowHit.style.cursor = CURSOR.scissorsOpen), 350);
+    variant = "normal";
+    Object.assign(sym, { state: "drop", vx: -170, vy: -40, rotV: -4.2 });
+    bounceA = 0;
+    setMode("drop");
   });
   bodyHit.addEventListener("pointerenter", () => { if (mode === "wallIdle") flee(); });
   bodyHit.addEventListener("pointerdown", () => {
@@ -195,12 +290,34 @@
     clock += dt; timer += dt * 1000; bounceT += dt;
     if (pet > 0) pet = Math.max(0, pet - dt * 2.4);
 
+    updateSym(dt);
+
+    if (mode === "shoot") {
+      shot = Math.min(1, shot + dt * 1000 / CONFIG.shootTime);
+      if (shot >= 1) {
+        sym.state = "pull";
+        sym.speed = Math.max(CONFIG.pullMinSpeed, (sym.y - lowY()) / (CONFIG.pullMaxTime / 1000));
+        setMode("pull");
+      }
+      return;
+    }
+    if (mode === "pull" || mode === "holdStart" || mode === "drop") return;   // presa no fio
+    if (mode === "angryUp") {
+      if (pos - window.scrollY + (460 - ANCHOR.y) * scale > -10) pos -= CONFIG.riseSpeed * dt;  // sobe até sumir
+      if (timer >= CONFIG.wppReturn) { variant = "wpp"; respawn(); }
+      return;
+    }
+
     if (onWeb()) {
+      if (variant === "normal" && sym.state === "floor") {
+        idleAcc += dt * 1000;
+        if (idleAcc >= CONFIG.wppAfter && (mode === "idle" || mode === "pointing")) { startShoot(); return; }
+      }
       const t = target();
       let d = t - pos;
       if (Math.abs(d) > innerHeight * 1.1) { pos = t - Math.sign(d) * innerHeight * 0.75; vel = 0; d = t - pos; }
       if ((mode === "idle" || mode === "stopping" || mode === "pointing") && Math.abs(d) > CONFIG.moveThreshold) setMode("moving");
-      if (mode === "idle" && besideClickable()) setMode("pointing");
+      if (mode === "idle" && variant === "normal" && besideClickable()) setMode("pointing");
       else if (mode === "pointing" && !besideClickable()) setMode("idle");
 
       if (mode === "moving") {
@@ -229,6 +346,7 @@
       const fl = floorLine();
       if (pos + (FALL_BOTTOM - ANCHOR.y) * scale >= fl) {   // tocou o chão
         gx = Math.max(webX() + (FW / 2 - ANCHOR.x) * scale, 205 * scale + 12); // mesmo x, sem cortar na borda
+        if (sym.state === "floor") gx = Math.max(gx, lowX() + 190 * scale);  // não cai em cima do símbolo
         gy = fl;
         bounceT = 0; bounceA = reduced ? 0 : 10;             // pequeno quique ao cair
         cut = null;
@@ -316,7 +434,7 @@
 
   /* ---------- Quadros ---------- */
   function advance(dt) {
-    if (!anim) return;
+    if (!anim || mode === "shoot") return;      // disparando: segura o 1º quadro de puxando
     const s = SHEETS[anim];
     frameTime += dt;
     const step = 1 / s.fps;
@@ -327,6 +445,7 @@
         else {
           frame = s.frames - 1;
           if (anim === "webstop") setMode(besideClickable() ? "pointing" : "idle");
+          else if (anim === "seg_inicio") { variant = "hold"; setMode("idle"); }
           else if (anim === "apontar_inicio") play("apontar");
           else if (anim === "virada") setMode("walking");
           return;                               // fall: fica no último quadro até tocar o chão
@@ -338,7 +457,7 @@
   function draw() {
     const sy = window.scrollY;
     let left, top;
-    if (onWeb() || mode === "falling") {
+    if (hanging() || mode === "falling") {
       const off = onWeb() ? bounceOffset() : 0;
       const x = webX(), y = pos - sy + off;
       left = x - ANCHOR.x * scale; top = y - ANCHOR.y * scale;
@@ -363,7 +482,44 @@
       bodyHit.style.width = (bb[2] - bb[0]) * scale * k + "px";
       bodyHit.style.height = (bb[3] - bb[1]) * scale * k + "px";
     }
-    if (onWeb() || mode === "falling") canvas.style.transformOrigin = "50% 0";
+    if (hanging() || mode === "falling") canvas.style.transformOrigin = "50% 0";
+
+    // teia de baixo (disparo / puxando / segurando)
+    const lx = lowX(), ly = lowY() - sy + (onWeb() ? bounceOffset() : 0);
+    const showLow = mode === "shoot" || sym.state === "pull" || sym.state === "held";
+    lowThread.hidden = !showLow;
+    if (showLow) {
+      const full = Math.max(0, sym.y - sy - ly);
+      lowThread.style.transform = `translate(${lx}px, ${ly}px)`;
+      lowThread.style.height = (mode === "shoot" ? full * (1 - Math.pow(1 - shot, 3)) : full) + "px";
+      lowHit.style.transform = `translate(${lx - 9}px, ${ly + 4}px)`;
+      lowHit.style.height = Math.max(0, full - 8) + "px";
+    }
+
+    // símbolo (canvas próprio) e área clicável só no desenho do símbolo
+    const ks = scale * CONFIG.size.wppteia;
+    const symOn = sym.state !== "gone" && layer.classList.contains("is-on");
+    symCanvas.hidden = !symOn;
+    let hit = null;
+    if (symOn) {
+      const ax = sym.x, ay = sym.y - sy;
+      symCanvas.style.transformOrigin = `${APEX.x * ks}px ${APEX.y * ks}px`;
+      symCanvas.style.transform = `translate(${ax - APEX.x * ks}px, ${ay - APEX.y * ks}px) rotate(${sym.rot}rad)`;
+      symCtx.setTransform(1, 0, 0, 1, 0, 0);
+      symCtx.clearRect(0, 0, symCanvas.width, symCanvas.height);
+      symCtx.drawImage(sheets.wppteia, sym.frame * FW, 0, FW, FH, 0, 0, symCanvas.width, symCanvas.height);
+      if (sym.state !== "drop")
+        hit = [ax + (SYM_HIT[0] - APEX.x) * ks, ay + (SYM_HIT[1] - APEX.y) * ks, (SYM_HIT[2] - SYM_HIT[0]) * ks, (SYM_HIT[3] - SYM_HIT[1]) * ks];
+    }
+    if (variant === "wpp" && onWeb()) {         // símbolo desenhado no próprio sprite da aranha
+      const off = bounceOffset(), x = webX(), y = pos - sy + off;
+      hit = [x + (WPP_HIT[0] - ANCHOR.x) * scale, y + (WPP_HIT[1] - ANCHOR.y) * scale, (WPP_HIT[2] - WPP_HIT[0]) * scale, (WPP_HIT[3] - WPP_HIT[1]) * scale];
+    }
+    waHit.hidden = !hit;
+    if (hit) {
+      waHit.style.transform = `translate(${hit[0]}px, ${hit[1]}px)`;
+      waHit.style.width = hit[2] + "px"; waHit.style.height = hit[3] + "px";
+    }
 
     // pedaços da teia cortada
     cutTop.hidden = cutLow.hidden = !cut;
@@ -390,7 +546,7 @@
     setMode("moving");
   }
 
-  window.__aranha = () => ({ mode, anim, frame, beside: onWeb() && besideClickable() });
+  window.__aranha = () => ({ mode, anim, frame, variant, sym: sym.state, beside: onWeb() && besideClickable() });
 
   /* ---------- Início ---------- */
   Promise.all(Object.entries(SHEETS).map(([k, s]) => load(s.src).then((img) => [k, img])))
@@ -399,6 +555,7 @@
       measure();
       addEventListener("resize", measure);
       setMode("hidden"); threadHit.hidden = bodyHit.hidden = cutTop.hidden = cutLow.hidden = true;
+      lowThread.hidden = lowHit.hidden = waHit.hidden = true;
       setTimeout(() => {
         layer.classList.add("is-on");
         respawn();

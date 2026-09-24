@@ -22,7 +22,7 @@
      - disparandoteia (6 fps): o fio desce devagar do meio das patas até o símbolo no chão;
        puxa (puxando_teia) enquanto o símbolo sobe → segurandowpp_inicio → segurandowpp_idle (loop).
      - Cortar a teia de baixo: soltandoteia (loop) enquanto o símbolo cai girando para a esquerda;
-       fica parada 4 s, sobe (penduradabrava) até sumir; depois desce com o símbolo (wpp, loop).
+       soltandoteia (1x) → penduradabrava parada 4 s → sobe até sumir; depois desce com o símbolo (wpp, loop).
      - Na parede: depois de 3 min ela sai da tela, desce pela teia e repete o disparo.
      - O símbolo é clicável (abre o WhatsApp) no chão, sendo puxado, segurado e no sprite wpp.
      - Teste rápido: ?wpp=10 faz isso acontecer depois de 10 s.
@@ -81,7 +81,7 @@
     puxando:        { src: S + "puxando_teia.png",      frames: 6,  fps: 8,  loop: true },
     seg_inicio:     { src: S + "segurando_inicio.png",  frames: 10, fps: 8,  loop: false },
     seg_idle:       { src: S + "segurando_idle.png",    frames: 6,  fps: 8,  loop: true },
-    soltando:       { src: S + "soltando_teia.png",     frames: 7,  fps: 10, loop: true },
+    soltando:       { src: S + "soltando_teia.png",     frames: 7,  fps: 10, loop: false },
     pend_brava:     { src: S + "pendurada_brava.png",   frames: 3,  fps: 6,  loop: true },
     wpp:            { src: S + "wpp.png",               frames: 8,  fps: 8,  loop: true },
     wppteia:        { src: S + "wppteia.png",           frames: 4,  fps: 5,  loop: true }   // símbolo (canvas próprio)
@@ -253,7 +253,7 @@
       sym.vy += CONFIG.dropGravity * dt;
       sym.x += sym.vx * dt; sym.y += sym.vy * dt; sym.rot += sym.rotV * dt;
       const sy = sym.y - window.scrollY;
-      if (sy > innerHeight + 120 || sym.x < -160) { sym.state = "gone"; setMode("angryUp"); }
+      if (sy > innerHeight + 120 || sym.x < -160) sym.state = "gone";
     }
   }
 
@@ -317,7 +317,7 @@
     }
     if (mode === "pull" || mode === "holdStart" || mode === "drop") return;   // presa no fio
     if (mode === "angryUp") {
-      const waited = performance.now() - cutAt >= CONFIG.stayAfterCut;       // fica parada 4 s
+      const waited = timer >= CONFIG.stayAfterCut;                           // penduradabrava parada 4 s
       const visible = pos - window.scrollY + (460 - ANCHOR.y) * scale > -10;
       if (waited && visible) pos -= CONFIG.riseSpeed * dt;                    // depois sobe até sumir
       if (waited && !visible && timer >= CONFIG.wppReturn) { variant = "wpp"; respawn(); }
@@ -482,6 +482,7 @@
           frame = s.frames - 1;
           if (anim === "webstop") setMode(besideClickable() ? "pointing" : "idle");
           else if (anim === "seg_inicio") { variant = "hold"; setMode("idle"); }
+          else if (anim === "soltando") setMode("angryUp");   // soltou → brava parada 4 s → sobe
           else if (anim === "apontar_inicio") play("apontar");
           else if (anim === "virada") setMode("walking");
           return;                               // fall: fica no último quadro até tocar o chão

@@ -99,7 +99,8 @@ window.WORKS = [
     cover: W + "jogos/infestacao-logo.webp",
     images: [W + "jogos/infestacao-logo.webp"],
     fit: "contain",
-    featured: true
+    featured: true,
+    game: true
   },
   {
     category: "jogos",

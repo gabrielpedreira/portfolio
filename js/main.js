@@ -62,19 +62,26 @@
 
   const worksOf = (id) => WORKS.filter((w) => w.category === id || (w.also || []).includes(id));
 
+  // botão "Jogar" do minigame (js/game.js abre ao clicar em [data-play])
+  const playBtn = () => `<button class="playbtn" type="button" data-play aria-label="${t("game.play")}">
+      <span class="playbtn__label mono">${t("game.play")}</span>
+      <img src="assets/game/botao_jogar.png" alt="" width="180" height="96" loading="lazy">
+    </button>`;
+
   function renderCategories() {
     $("#catsGrid").innerHTML = CATEGORIES.filter((c) => worksOf(c.id).length).map((c, i) => {
       const n = worksOf(c.id).length;
       const cls = [c.fit === "contain" ? "is-contain" : "", c.pixel ? "is-pixel" : ""].join(" ");
-      return `<button class="cat ${i === 0 ? "cat--wide" : ""}" data-cat="${c.id}" type="button">
+      return `<div class="cat ${i === 0 ? "cat--wide" : ""}" data-cat="${c.id}" role="button" tabindex="0">
         <span class="cat__media ${cls}">${c.cover ? `<img src="${c.cover}" alt="" loading="lazy">` : ""}</span>
         <span class="cat__body">
           <span class="cat__count mono">${n} ${n === 1 ? t("work.item") : t("work.items")}</span>
           <span class="cat__title">${tx(c.label)}</span>
           <span class="cat__blurb">${tx(c.blurb) || ""}</span>
           <span class="cat__cta mono">${t("work.open")} →</span>
+          ${c.id === "jogos" ? playBtn() : ""}
         </span>
-      </button>`;
+      </div>`;
     }).join("");
   }
 
@@ -144,6 +151,7 @@
           ${w.details ? `<dl class="card__details">${w.details.map((d) => `<div><dt>${tx(d.label)}</dt><dd>${d.items.map(tx).join(d.items.every((i) => typeof i === "string") ? " · " : "<br>")}</dd></div>`).join("")}</dl>` : ""}
           ${w.tags?.length ? `<ul class="chips">${w.tags.map((tg) => `<li>${tg}</li>`).join("")}</ul>` : ""}
           ${links ? `<div class="card__links">${links}</div>` : ""}
+          ${w.game ? playBtn() : ""}
         </div>
       </article>`;
     }).join("");
@@ -177,8 +185,12 @@
   }
 
   $("#catsGrid").addEventListener("click", (e) => {
+    if (e.target.closest("[data-play]")) return;
     const b = e.target.closest("[data-cat]");
     if (b) openCategory(b.dataset.cat);
+  });
+  $("#catsGrid").addEventListener("keydown", (e) => {
+    if (e.target.matches?.("[data-cat]") && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); openCategory(e.target.dataset.cat); }
   });
   $("#catBack").addEventListener("click", () => openCategory(null));
   // Link direto: site.com/#jogos abre a categoria

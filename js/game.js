@@ -11,10 +11,10 @@
   const FR = 128;
   const MAX_AMMO = 9, MAX_LIFE = 9, ZOMBIE_HP = 3;
   // dificuldade progressiva: a cada 12 abates ganha uma caveira e chegam mais zumbis
-  // [esquerda, direita] por nível — 3 → 6 → 9 → 12 (máximo)
-  const WAVES = [[0, 3], [3, 3], [4, 5], [6, 6]];
-  const KILLS_PER_SKULL = 12;
-  const level = () => Math.min(WAVES.length - 1, Math.floor(kills / KILLS_PER_SKULL));
+  // [esquerda, direita] por nível — 3 → 4 → 5 → 6 (máximo)
+  const WAVES = [[0, 3], [1, 3], [2, 3], [3, 3]];
+  const SKULL_AT = [8, 13, 17];            // abates para ganhar a 1ª, 2ª e 3ª caveira (mais de 7, 12 e 16)
+  const level = () => SKULL_AT.filter((k) => kills >= k).length;
 
   // quadros detectados pela largura da imagem; fps de cada animação
   const SHEETS = {
@@ -71,12 +71,12 @@
   const SOUNDS = {
     amb: "ambiencia.mp3", groan: "grunhido_zumbi.mp3", zdie: "zumbi_morte.mp3",
     stepsL: "passos_lorena.mp3", stepsZ: "passos_zumbi.mp3",
-    shot: "tiro_pistola.mp3", reload: "recarga_pistola.mp3", hurt: "lorena_dano.mp3"
+    shot: "tiro_pistola.mp3", empty: "pistola_descarregada.mp3", reload: "recarga_pistola.mp3", hurt: "lorena_dano.mp3"
   };
   // trechos do arquivo de grunhidos (segundos): curtos p/ tiro/ataque, longo p/ agarrão
   const GROANS = [[0, 1.14], [1.69, 2.69], [3.13, 3.88], [7.36, 8.1]];
   const GROAN_LONG = [4.38, 7.04];
-  const MIX = { amb: 0.35, groan: 0.55, zdie: 0.7, stepsL: 0.55, stepsZ: 0.5, shot: 0.8, reload: 0.8, hurt: 0.8 };
+  const MIX = { amb: 0.35, groan: 0.55, zdie: 0.7, stepsL: 0.55, stepsZ: 0.5, shot: 0.8, empty: 0.8, reload: 0.8, hurt: 0.8 };
   const store = {
     get(k) { try { return localStorage.getItem(k); } catch { return null; } },
     set(k, v) { try { localStorage.setItem(k, v); } catch {} }
@@ -356,7 +356,8 @@
         }
         if (input.shootQ || input.shoot) {
           input.shootQ = false;
-          if (L.ammo > 0) setL("shoot", "l_shoot"); else setL("empty", "l_empty");
+          if (L.ammo > 0) setL("shoot", "l_shoot");
+          else { setL("empty", "l_empty"); A.play("empty", { pan: panOf(L.x) * 0.6 }); }   // clique da arma vazia
           break;
         }
         const mv = (input.right ? 1 : 0) - (input.left ? 1 : 0);

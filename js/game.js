@@ -32,9 +32,10 @@
     z_grab:   { src: "zumbi_agarrao.png",       fps: 10 },
     z_hurt:   { src: "zumbi_dano.png",          fps: 12 },
     z_dead:   { src: "zumbi_morte.png",         fps: 12 },
-    over:     { src: "game_over.png",           fps: 12 }
+    over:     { src: "game_over.png",           fps: 12 },
+    bug:      { src: "inseto_voando.png",       fps: 12, loop: true }
   };
-  const IMGS = { bg: "cenario.webp", gun: "pistola_hud.png", bullet: "municao_hud.png" };
+  const IMGS = { bg: "cenario.webp", front: "cenario_frente.webp", gun: "pistola_hud.png", bullet: "municao_hud.png" };
 
   const TXT = {
     pt: { kills: "ZUMBIS", restart: "Recomeçar", loading: "Carregando…", close: "Fechar jogo",
@@ -69,7 +70,7 @@
   /* ---------- Som (Web Audio: baixa latência, sons sobrepostos) ---------- */
   const SND_DIR = "assets/sounds/";
   const SOUNDS = {
-    amb: "ambiencia.mp3", groan: "grunhido_zumbi.mp3", zdie: "zumbi_morte.mp3",
+    amb: "ambiencia.mp3", groan: "grunhido_zumbi.mp3", zdie: "zumbi_morte.mp3", zatk: "zumbi_ataque.mp3", ldie: "lorena_morte.mp3", amb2: "ambiencia_evento.mp3",
     stepsL: "passos_lorena.mp3", stepsZ: "passos_zumbi.mp3",
     shot: "tiro_pistola.mp3", empty: "pistola_descarregada.mp3", bite: "mordida_zumbi.mp3", reload: "recarga_pistola.mp3", hurt: "lorena_dano.mp3"
   };
@@ -78,7 +79,7 @@
   const GROAN_LONG = [4.38, 7.04];
   // mordidas separadas no arquivo — uma a cada dano do agarrão
   const BITES = [[0, 0.79], [1.13, 1.78], [2.43, 2.92], [3.66, 4.44]];
-  const MIX = { amb: 0.35, groan: 0.55, zdie: 0.7, stepsL: 0.55, stepsZ: 0.5, shot: 0.8, empty: 0.8, bite: 0.9, reload: 0.8, hurt: 0.8 };
+  const MIX = { zatk: 0.8, ldie: 0.9, amb2: 0.6, amb: 0.35, groan: 0.55, zdie: 0.7, stepsL: 0.55, stepsZ: 0.5, shot: 0.8, empty: 0.8, bite: 0.9, reload: 0.8, hurt: 0.8 };
   const store = {
     get(k) { try { return localStorage.getItem(k); } catch { return null; } },
     set(k, v) { try { localStorage.setItem(k, v); } catch {} }
@@ -317,6 +318,7 @@
     kills = 0;
     spawnQ = [];
     over = { fade: 0, t: -1, shown: false };
+    bug = null;
     for (let i = 0; i < WAVES[0][1]; i++) spawn(1, W + 70 + i * 150);
     restartBtn.hidden = true;
     Object.keys(input).forEach((k) => (input[k] = false));
@@ -343,8 +345,39 @@
   }
   function die() {
     setL("dead", "l_dead");
+    A.play("ldie", { pan: panOf(L.x) * 0.6 });
     if (L.grabbedBy) { const z = L.grabbedBy; L.grabbedBy = null; setZ(z, "walk", "z_walk"); z.cool = 99; }
     over.t = 0;
+  }
+
+  /* ---------- eventos por abates ---------- */
+  // a cada 7 abates: ambiência extra; a cada 10: um inseto gigante passa voando ao longe, atrás dos prédios
+  function milestones() {
+    if (kills % 7 === 0) A.play("amb2");
+    if (kills % 10 === 0) spawnBug();
+  }
+  let bug = null;
+  function spawnBug() {
+    const dir = Math.random() < 0.5 ? 1 : -1;
+    bug = { dir, x: dir > 0 ? -60 : W + 60, y0: 112 + Math.random() * 30, t: 0, a: anim("bug"), speed: 95 + Math.random() * 30 };
+  }
+  function updateBug(dt) {
+    if (!bug) return;
+    bug.t += dt; bug.a.t += dt;
+    bug.x += bug.dir * bug.speed * dt;
+    if (bug.x < -80 || bug.x > W + 80) bug = null;
+  }
+  function drawBug() {
+    if (!bug) return;
+    const s = SHEETS.bug; if (!s.img) return;
+    const size = FR * 0.34;                                  // longe: bem pequeno
+    const y = bug.y0 + Math.sin(bug.t * 1.3) * 26 + Math.sin(bug.t * 7) * 2;
+    ctx.save();
+    ctx.globalAlpha = 0.9;
+    ctx.translate(bug.x, y);
+    if (bug.dir < 0) ctx.scale(-1, 1);                       // o desenho olha para a direita
+    ctx.drawImage(s.img, frameOf(bug.a) * FR, 0, FR, FR, -size / 2, -size / 2, size, size);
+    ctx.restore();
   }
 
   /* ---------- Lorena ---------- */
@@ -410,7 +443,7 @@
     }
     if (!best) return;
     best.hp--;
-    if (best.hp <= 0) { setZ(best, "dead", "z_dead"); kills++; A.play("zdie", { gain: nearGain(best.x), pan: panOf(best.x) }); }
+    if (best.hp <= 0) { setZ(best, "dead", "z_dead"); kills++; A.play("zdie", { gain: nearGain(best.x), pan: panOf(best.x) }); milestones(); }
     else { setZ(best, "hurt", "z_hurt"); groan(best, false, 0.25); best.cool = Math.max(best.cool, 0.25); }
   }
 
@@ -465,6 +498,7 @@
         case "attack":
           if (!z.hitDone && frameOf(z.a) >= 4) {
             z.hitDone = true;
+            A.play("zatk", { gain: nearGain(z.x), pan: panOf(z.x) });
             if (dist <= STOP + 14 && !lorenaDown() && L.st !== "grab") {
               if (L.st === "reload" || L.st === "shoot" || L.st === "empty" || L.st === "idle" || L.st === "walk" || L.st === "hurt") setL("hurt", "l_hurt");
               hurtLorena(1);
@@ -537,6 +571,8 @@
     ctx.setTransform(k, 0, 0, k, 0, 0);
     ctx.imageSmoothingEnabled = true;
     if (IMGS.bg) ctx.drawImage(IMGS.bg, 0, 0, W, H); else { ctx.fillStyle = "#111"; ctx.fillRect(0, 0, W, H); }
+    drawBug();                                               // entre o céu e o recorte dos prédios
+    if (IMGS.front) ctx.drawImage(IMGS.front, 0, 0, W, H);
     ctx.imageSmoothingEnabled = false;
 
     // sombras
@@ -656,6 +692,7 @@
     A.resume();
     updateLorena(dt);
     updateZombies(dt);
+    updateBug(dt);
     soundTick(dt);
     if (over.t >= 0) { over.t += dt; over.fade = Math.min(0.78, over.t / 2.2); }
     draw();
@@ -722,5 +759,6 @@
 
   window.__jogo = { open, close, get state() { return { L, zombies, kills, over }; },
     setKills(n) { kills = n; },
+    bug() { spawnBug(); },
     get audio() { return { loaded: Object.keys(A.buf), ctx: A.ctx?.state, vol: A.vol, muted: A.muted, plays: A.count, loops: Object.fromEntries(Object.entries(A.loops).map(([k, l]) => [k, +l.cur.toFixed(2)])) }; } };
 })();

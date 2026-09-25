@@ -485,3 +485,19 @@ html.game-open { overflow: hidden; }
 .game__rotate-ico::after { content: ""; position: absolute; left: 50%; bottom: 6px; width: 14px; height: 4px; margin-left: -7px; border-radius: 2px; background: var(--accent); }
 @keyframes gameRotate { 0%, 20% { transform: rotate(0); } 50%, 80% { transform: rotate(-90deg); } 100% { transform: rotate(0); } }
 .game.is-touch .game__restart { top: 70%; font-size: clamp(.8rem, calc(var(--u) * 4), 1.1rem); }
+
+/* ---------- Minigame: volume ---------- */
+.game__vol { display: inline-flex; align-items: center; gap: 8px; }
+.game__vol input { width: 110px; accent-color: var(--accent); cursor: pointer; }
+.game__vol-btn { display: grid; place-items: center; width: 30px; height: 30px; padding: 0 !important; border-radius: 6px; color: #e8e8ea !important; }
+.game__vol-btn:hover { color: var(--accent) !important; }
+[data-vol-ico] svg { width: 20px; height: 20px; }
+[data-vol-ico] .x { display: none; }
+[data-vol-ico][data-level="0"] .w1, [data-vol-ico][data-level="0"] .w2, [data-vol-ico][data-level="1"] .w2 { display: none; }
+[data-vol-ico][data-level="0"] .x { display: inline; }
+.game__pad-vol { position: absolute; top: max(10px, env(safe-area-inset-top)); right: max(16px, env(safe-area-inset-right)); width: 38px; height: 38px; }
+.game__pad-vol svg { width: 20px; height: 20px; }
+.game.is-touch .game__pad-vol { top: auto; bottom: auto; top: calc(max(10px, env(safe-area-inset-top)) + 0px); right: auto; left: calc(50% + 28px); }
+.game.is-touch .game__pad-quit { transform: translateX(calc(-50% - 28px)); }
+.game.is-touch .game__pad-quit.is-on { transform: translateX(calc(-50% - 28px)) scale(.92); }
+@media (max-width: 700px) { .game__vol span, .game__vol kbd { display: none; } .game__vol input { width: 80px; } }

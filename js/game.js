@@ -34,10 +34,10 @@
   const TXT = {
     pt: { kills: "ZUMBIS", restart: "Recomeçar", loading: "Carregando…", close: "Fechar jogo",
           walkR: "anda pra direita", walkL: "anda pra esquerda", shoot: "atira", reload: "recarrega", quit: "fecha o jogo",
-          rotate: "Gire o celular para jogar", quitBtn: "Fechar" },
+          rotate: "Gire o celular para jogar", quitBtn: "Fechar", volume: "volume", mute: "Silenciar", unmute: "Ativar som" },
     en: { kills: "ZOMBIES", restart: "Restart", loading: "Loading…", close: "Close game",
           walkR: "walk right", walkL: "walk left", shoot: "shoot", reload: "reload", quit: "close the game",
-          rotate: "Rotate your phone to play", quitBtn: "Close" }
+          rotate: "Rotate your phone to play", quitBtn: "Close", volume: "volume", mute: "Mute", unmute: "Unmute" }
   };
   // celular/tablet: tela cheia, pede para girar e mostra botões na tela
   const TOUCH = () => matchMedia("(pointer: coarse)").matches
@@ -59,6 +59,99 @@
   }
   const lang = () => (document.documentElement.lang || "pt").startsWith("en") ? "en" : "pt";
   const T = (k) => TXT[lang()][k];
+
+
+  /* ---------- Som (Web Audio: baixa latência, sons sobrepostos) ---------- */
+  const SND_DIR = "assets/sounds/";
+  const SOUNDS = {
+    amb: "ambiencia.mp3", groan: "grunhido_zumbi.mp3", zdie: "zumbi_morte.mp3",
+    stepsL: "passos_lorena.mp3", stepsZ: "passos_zumbi.mp3",
+    shot: "tiro_pistola.mp3", reload: "recarga_pistola.mp3", hurt: "lorena_dano.mp3"
+  };
+  // trechos do arquivo de grunhidos (segundos): curtos p/ tiro/ataque, longo p/ agarrão
+  const GROANS = [[0, 1.14], [1.69, 2.69], [3.13, 3.88], [7.36, 8.1]];
+  const GROAN_LONG = [4.38, 7.04];
+  const MIX = { amb: 0.35, groan: 0.55, zdie: 0.7, stepsL: 0.55, stepsZ: 0.5, shot: 0.8, reload: 0.8, hurt: 0.8 };
+  const store = {
+    get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+    set(k, v) { try { localStorage.setItem(k, v); } catch {} }
+  };
+  const A = {
+    ctx: null, master: null, buf: {}, loops: {}, ready: null,
+    vol: Math.min(1, Math.max(0, parseFloat(store.get("jogo.volume") ?? "0.7") || 0)),
+    muted: store.get("jogo.mudo") === "1",
+    last: {}, count: {},
+    init() {
+      if (this.ctx) return this.ready;
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return (this.ready = Promise.resolve());
+      this.ctx = new AC();
+      this.master = this.ctx.createGain();
+      this.master.connect(this.ctx.destination);
+      this.applyVol();
+      this.ready = Promise.all(Object.entries(SOUNDS).map(([k, f]) =>
+        fetch(SND_DIR + f).then((r) => r.arrayBuffer())
+          .then((ab) => new Promise((ok, no) => this.ctx.decodeAudioData(ab, ok, no)))
+          .then((b) => { this.buf[k] = b; }).catch(() => {})));
+      return this.ready;
+    },
+    applyVol() {
+      if (!this.master) return;
+      const v = this.muted ? 0 : this.vol;
+      this.master.gain.setTargetAtTime(v * v, this.ctx.currentTime, 0.03);  // curva perceptiva
+    },
+    setVol(v) { this.vol = Math.min(1, Math.max(0, v)); if (this.vol > 0) this.muted = false; store.set("jogo.volume", this.vol); store.set("jogo.mudo", this.muted ? "1" : "0"); this.applyVol(); syncVolUI(); },
+    toggleMute() { if (this.muted || this.vol === 0) { this.muted = false; if (this.vol === 0) this.vol = 0.5; } else this.muted = true; store.set("jogo.volume", this.vol); store.set("jogo.mudo", this.muted ? "1" : "0"); this.applyVol(); syncVolUI(); },
+    resume() { this.ctx?.state === "suspended" && this.ctx.resume().catch(() => {}); },
+    suspend() { this.ctx?.state === "running" && this.ctx.suspend().catch(() => {}); },
+    // toca um som (opcional: trecho [ini, fim], volume, pan -1..1, intervalo mínimo entre repetições)
+    play(k, { seg, gain = 1, pan = 0, gap = 0 } = {}) {
+      const b = this.buf[k]; if (!b || !this.ctx) return;
+      const now = this.ctx.currentTime;
+      if (gap && now - (this.last[k] || -9) < gap) return;
+      this.last[k] = now;
+      this.count[k] = (this.count[k] || 0) + 1;
+      const src = this.ctx.createBufferSource(); src.buffer = b;
+      const g = this.ctx.createGain(); g.gain.value = MIX[k] * gain;
+      let node = src.connect(g);
+      if (this.ctx.createStereoPanner) { const p = this.ctx.createStereoPanner(); p.pan.value = Math.max(-1, Math.min(1, pan)); node = g.connect(p); }
+      node.connect(this.master);
+      if (seg) src.start(now, seg[0], seg[1] - seg[0]); else src.start(now);
+    },
+    // loops contínuos com volume ajustável (ambiência, passos)
+    loop(k, gain, pan = 0) {
+      const b = this.buf[k]; if (!b || !this.ctx) return;
+      let l = this.loops[k];
+      if (!l) {
+        const src = this.ctx.createBufferSource(); src.buffer = b; src.loop = true;
+        const g = this.ctx.createGain(); g.gain.value = 0;
+        let node = src.connect(g);
+        let p = null;
+        if (this.ctx.createStereoPanner) { p = this.ctx.createStereoPanner(); node = g.connect(p); }
+        node.connect(this.master);
+        src.start(this.ctx.currentTime, Math.random() * b.duration * 0.6);
+        l = this.loops[k] = { src, g, p, cur: -1 };
+      }
+      const target = MIX[k] * gain;
+      if (Math.abs(target - l.cur) > 0.01) { l.g.gain.setTargetAtTime(target, this.ctx.currentTime, 0.06); l.cur = target; }
+      if (l.p) l.p.pan.setTargetAtTime(Math.max(-1, Math.min(1, pan)), this.ctx.currentTime, 0.1);
+    },
+    stopLoops() { for (const l of Object.values(this.loops)) { try { l.src.stop(); } catch {} } this.loops = {}; }
+  };
+  const panOf = (x) => (x / W) * 1.4 - 0.7;
+  const nearGain = (x) => Math.max(0.15, 1 - Math.abs(x - L.x) / 900);
+  const offScreen = (x) => x > W + 30 || x < -30;
+  const groan = (z, long = false, gap = 0.5) => {
+    if (offScreen(z.x)) return;
+    A.play("groan", { seg: long ? GROAN_LONG : GROANS[(Math.random() * GROANS.length) | 0], gain: nearGain(z.x), pan: panOf(z.x), gap });
+  };
+  function syncVolUI() {
+    if (!root) return;
+    const v = A.muted ? 0 : A.vol;
+    root.querySelectorAll(".game__vol input").forEach((i) => (i.value = Math.round(v * 100)));
+    root.querySelectorAll("[data-vol-ico]").forEach((b) => { b.dataset.level = v === 0 ? "0" : v < 0.5 ? "1" : "2"; b.setAttribute("aria-label", T(v === 0 ? "unmute" : "mute")); });
+  }
+  const SPEAKER = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/><path class="w1" d="M16 9.5a3.5 3.5 0 0 1 0 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path class="w2" d="M18.5 7a7 7 0 0 1 0 10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path class="x" d="M16 9l5 6M21 9l-5 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`;
 
   /* ---------- carregamento ---------- */
   let loaded = null;
@@ -97,6 +190,7 @@
             <button type="button" data-k="shoot" class="is-shoot"><b>D</b><small data-t="shoot"></small></button>
           </div>
           <button type="button" data-k="quit" class="game__pad-quit">✕</button>
+          <button type="button" data-k="mute" class="game__pad-vol" data-vol-ico>${SPEAKER}</button>
         </div>
         <div class="game__rotate">
           <div class="game__rotate-ico" aria-hidden="true"></div>
@@ -109,6 +203,7 @@
           <button type="button" data-k="shoot"><kbd>D</kbd><span data-t="shoot"></span></button>
           <button type="button" data-k="reload"><kbd>S</kbd><span data-t="reload"></span></button>
           <button type="button" data-k="quit"><kbd>B</kbd><span data-t="quit"></span></button>
+          <div class="game__vol"><button type="button" class="game__vol-btn" data-vol-ico>${SPEAKER}</button><kbd>M</kbd><input type="range" min="0" max="100" step="5" aria-label="Volume"></div>
         </div>
       </div>`;
     document.body.appendChild(root);
@@ -119,6 +214,9 @@
     loadingEl = root.querySelector(".game__loading");
     band = root.querySelector(".game__band");
     root.querySelector(".game__rotate-close").addEventListener("click", close);
+    const range = root.querySelector(".game__vol input");
+    range.addEventListener("input", () => A.setVol(range.value / 100));
+    root.querySelector(".game__vol-btn").addEventListener("click", (e) => { e.preventDefault(); A.toggleMute(); });
     restartBtn.addEventListener("click", () => { reset(); canvas.focus?.(); });
     root.querySelector(".game__x").addEventListener("click", close);
     root.querySelector(".game__backdrop").addEventListener("click", close);
@@ -129,6 +227,7 @@
       e.preventDefault();
       const k = b.dataset.k, id = e.pointerId;
       if (k === "quit") return close();
+      if (k === "mute") { A.toggleMute(); return; }
       press(k, true); b.classList.add("is-on");
       navigator.vibrate?.(8);
       const up = (ev) => {
@@ -155,6 +254,7 @@
     restartBtn.textContent = T("restart");
     loadingEl.textContent = T("loading");
     root.querySelector(".game__x").setAttribute("aria-label", T("close"));
+    syncVolUI();
   }
   function fit() {
     if (!canvas || root.hidden) return;
@@ -184,6 +284,7 @@
     else if (k === "ArrowRight") act = "right";
     else if (k === "d") act = "shoot";
     else if (k === "s") act = "reload";
+    else if (k === "m") { e.preventDefault(); e.stopPropagation(); if (down && !e.repeat) A.toggleMute(); return; }
     else if ((k === "b" || k === "Escape") && down) { e.preventDefault(); e.stopPropagation(); return close(); }
     else if (k === "ArrowUp" || k === "ArrowDown" || k === " ") { e.preventDefault(); return; }
     if (!act) return;
@@ -229,6 +330,7 @@
   function hurtLorena(n) {
     if (lorenaDown()) return;
     L.life = Math.max(0, L.life - n);
+    A.play("hurt", { pan: panOf(L.x) * 0.6, gap: 0.12 });
     if (L.life <= 0) die();
   }
   function die() {
@@ -267,13 +369,14 @@
         break;
       }
       case "shoot":
-        if (!L.fired && frameOf(L.a) >= 3) { L.fired = true; L.ammo--; fire(); }
+        if (!L.fired && frameOf(L.a) >= 3) { L.fired = true; L.ammo--; A.play("shot", { pan: panOf(L.x) * 0.6 }); fire(); }
         if (done(L.a)) setL("idle", "l_idle");      // ciclo completo, nunca interrompido por outro tiro
         break;
       case "empty":
         if (done(L.a)) setL("idle", "l_idle");
         break;
       case "reload":
+        if (!L.fired && frameOf(L.a) >= 7) { L.fired = true; A.play("reload", { pan: panOf(L.x) * 0.6 }); }   // som no encaixe do pente
         if (done(L.a)) { L.ammo = MAX_AMMO; setL("idle", "l_idle"); }
         input.shootQ = false;
         break;
@@ -298,8 +401,8 @@
     }
     if (!best) return;
     best.hp--;
-    if (best.hp <= 0) { setZ(best, "dead", "z_dead"); kills++; }
-    else { setZ(best, "hurt", "z_hurt"); best.cool = Math.max(best.cool, 0.25); }
+    if (best.hp <= 0) { setZ(best, "dead", "z_dead"); kills++; A.play("zdie", { gain: nearGain(best.x), pan: panOf(best.x) }); }
+    else { setZ(best, "hurt", "z_hurt"); groan(best, false, 0.25); best.cool = Math.max(best.cool, 0.25); }
   }
 
   /* ---------- Zumbis ---------- */
@@ -333,7 +436,7 @@
             if (rank.get(z) === 0 && z.cool <= 0 && !lorenaDown() && L.st !== "grab") {
               const canGrab = !grabbing && L.st !== "hurt";
               if (canGrab && Math.random() < 0.28) startGrab(z, side);
-              else { setZ(z, "attack", "z_attack"); }
+              else { setZ(z, "attack", "z_attack"); groan(z, false, 0.3); }
             }
           }
           break;
@@ -383,6 +486,7 @@
   }
   function startGrab(z, side) {
     setZ(z, "grab", "z_grab");
+    groan(z, true, 0);
     z.side = side; z.dmg = 0;
     L.dir = side;                                          // ela vira para o agressor
     L.grabbedBy = z;
@@ -477,13 +581,33 @@
   }
 
   /* ---------- laço ---------- */
+  function soundTick(dt) {
+    if (!A.ctx) return;
+    A.loop("amb", 1);
+    A.loop("stepsL", L.st === "walk" ? 1 : 0, panOf(L.x) * 0.6);
+    let zg = 0, zx = 0, n = 0;
+    for (const z of zombies) {
+      if (z.st !== "walk" || offScreen(z.x)) continue;
+      const moving = Math.abs(z.x - L.x) > STOP + 2;
+      if (!moving) continue;
+      const g = nearGain(z.x); zg = Math.max(zg, g); zx += z.x; n++;
+    }
+    A.loop("stepsZ", n ? Math.min(1, zg * (0.7 + 0.15 * n)) : 0, n ? panOf(zx / n) : 0);
+    for (const z of zombies) {
+      if (!alive(z) || offScreen(z.x)) continue;
+      z.groanIn = (z.groanIn ?? 1 + Math.random() * 4) - dt;
+      if (z.groanIn <= 0) { z.groanIn = 3.5 + Math.random() * 5; if (z.st === "walk" || z.st === "idle") groan(z, false, 1.2); }
+    }
+  }
   function tick(now) {
     if (!running) return;
     const dt = Math.min(0.05, (now - last) / 1000 || 0);
     last = now;
-    if (PORTRAIT()) { raf = requestAnimationFrame(tick); return; }   // pausado até girar a tela
+    if (PORTRAIT()) { A.suspend(); raf = requestAnimationFrame(tick); return; }   // pausado até girar a tela
+    A.resume();
     updateLorena(dt);
     updateZombies(dt);
+    soundTick(dt);
     if (over.t >= 0) { over.t += dt; over.fade = Math.min(0.78, over.t / 2.2); }
     draw();
     raf = requestAnimationFrame(tick);
@@ -496,6 +620,7 @@
     opener = from || null;
     root.classList.toggle("is-touch", TOUCH());
     if (TOUCH()) enterFull();             // precisa ser no mesmo toque do botão
+    const snd = A.init(); A.resume();      // áudio também precisa nascer no clique
     root.hidden = false;
     document.documentElement.classList.add("game-open");
     // o painel "cresce" a partir do botão clicado
@@ -513,8 +638,9 @@
     addEventListener("keyup", onKey, true);
     fit();
     loadingEl.hidden = false;
-    await load();
+    await Promise.all([load(), snd]);
     if (root.hidden) return;
+    A.resume(); syncVolUI();
     loadingEl.hidden = true;
     reset();
     running = true; last = performance.now();
@@ -527,12 +653,15 @@
     removeEventListener("keydown", onKey, true);
     removeEventListener("keyup", onKey, true);
     Object.keys(input).forEach((k) => (input[k] = false));
+    A.stopLoops(); A.suspend();
     exitFull();
     const done = () => { root.hidden = true; document.documentElement.classList.remove("game-open"); opener?.focus?.({ preventScroll: true }); };
     const a = panel.animate([{ transform: "none", opacity: 1 }, { transform: "scale(.92)", opacity: 0 }], { duration: 200, easing: "ease-in" });
     a.onfinish = done;
   }
-  document.addEventListener("visibilitychange", () => { if (!document.hidden) last = performance.now(); });
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) { last = performance.now(); if (running) A.resume(); } else A.suspend();
+  });
 
   // qualquer elemento com data-play abre o jogo
   document.addEventListener("click", (e) => {
@@ -542,5 +671,6 @@
     open(b);
   }, true);
 
-  window.__jogo = { open, close, get state() { return { L, zombies, kills, over }; } };
+  window.__jogo = { open, close, get state() { return { L, zombies, kills, over }; },
+    get audio() { return { loaded: Object.keys(A.buf), ctx: A.ctx?.state, vol: A.vol, muted: A.muted, plays: A.count, loops: Object.fromEntries(Object.entries(A.loops).map(([k, l]) => [k, +l.cur.toFixed(2)])) }; } };
 })();

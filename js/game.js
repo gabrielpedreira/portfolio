@@ -71,12 +71,14 @@
   const SOUNDS = {
     amb: "ambiencia.mp3", groan: "grunhido_zumbi.mp3", zdie: "zumbi_morte.mp3",
     stepsL: "passos_lorena.mp3", stepsZ: "passos_zumbi.mp3",
-    shot: "tiro_pistola.mp3", empty: "pistola_descarregada.mp3", reload: "recarga_pistola.mp3", hurt: "lorena_dano.mp3"
+    shot: "tiro_pistola.mp3", empty: "pistola_descarregada.mp3", bite: "mordida_zumbi.mp3", reload: "recarga_pistola.mp3", hurt: "lorena_dano.mp3"
   };
   // trechos do arquivo de grunhidos (segundos): curtos p/ tiro/ataque, longo p/ agarrão
   const GROANS = [[0, 1.14], [1.69, 2.69], [3.13, 3.88], [7.36, 8.1]];
   const GROAN_LONG = [4.38, 7.04];
-  const MIX = { amb: 0.35, groan: 0.55, zdie: 0.7, stepsL: 0.55, stepsZ: 0.5, shot: 0.8, empty: 0.8, reload: 0.8, hurt: 0.8 };
+  // mordidas separadas no arquivo — uma a cada dano do agarrão
+  const BITES = [[0, 0.79], [1.13, 1.78], [2.43, 2.92], [3.66, 4.44]];
+  const MIX = { amb: 0.35, groan: 0.55, zdie: 0.7, stepsL: 0.55, stepsZ: 0.5, shot: 0.8, empty: 0.8, bite: 0.9, reload: 0.8, hurt: 0.8 };
   const store = {
     get(k) { try { return localStorage.getItem(k); } catch { return null; } },
     set(k, v) { try { localStorage.setItem(k, v); } catch {} }
@@ -474,7 +476,11 @@
           z.x = L.x + z.side * 26;                        // colado nela, desenhado por cima
           const f = frameOf(z.a);
           const hits = [4, 8, 12].filter((n) => f >= n).length;
-          while (z.dmg < hits && !lorenaDown()) { z.dmg++; hurtLorena(1); }
+          while (z.dmg < hits && !lorenaDown()) {
+            z.dmg++;
+            A.play("bite", { seg: BITES[(z.dmg - 1 + z.biteOff) % BITES.length], pan: panOf(L.x) * 0.6 });
+            hurtLorena(1);
+          }
           if (done(z.a)) {
             setZ(z, "walk", "z_walk"); z.cool = 1 + Math.random();
             z.x = L.x + z.side * STOP;
@@ -509,7 +515,7 @@
   function startGrab(z, side) {
     setZ(z, "grab", "z_grab");
     groan(z, true, 0);
-    z.side = side; z.dmg = 0;
+    z.side = side; z.dmg = 0; z.biteOff = (Math.random() * BITES.length) | 0;
     L.dir = side;                                          // ela vira para o agressor
     L.grabbedBy = z;
     setL("grab", "l_grab");

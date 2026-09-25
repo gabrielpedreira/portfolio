@@ -40,7 +40,9 @@
           rotate: "Rotate your phone to play", quitBtn: "Close" }
   };
   // celular/tablet: tela cheia, pede para girar e mostra botões na tela
-  const TOUCH = () => matchMedia("(pointer: coarse)").matches || new URLSearchParams(location.search).has("touch");
+  const TOUCH = () => matchMedia("(pointer: coarse)").matches
+    || (navigator.maxTouchPoints > 0 && Math.min(screen.width, screen.height) < 820)
+    || new URLSearchParams(location.search).has("touch");
   const PORTRAIT = () => TOUCH() && innerHeight > innerWidth;
   function enterFull() {
     const el = document.documentElement;
@@ -144,6 +146,8 @@
     document.addEventListener("langchange", labels);
     addEventListener("resize", fit);
     addEventListener("orientationchange", () => setTimeout(fit, 250));
+    window.visualViewport?.addEventListener("resize", fit);
+    document.addEventListener("fullscreenchange", () => setTimeout(fit, 100));
   }
   function labels() {
     if (!root) return;
@@ -155,6 +159,9 @@
   function fit() {
     if (!canvas || root.hidden) return;
     root.classList.toggle("is-touch", TOUCH());
+    // altura VISÍVEL de verdade (sem barra do navegador) para os botões nunca cortarem
+    const vv = window.visualViewport;
+    root.style.setProperty("--gvh", Math.round(vv ? vv.height : innerHeight) + "px");
     const r = canvas.getBoundingClientRect();
     const dpr = Math.min(devicePixelRatio || 1, 2);
     const w = Math.max(W, Math.min(1920, Math.round(r.width * dpr)));

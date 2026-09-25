@@ -188,6 +188,19 @@ window.WORKS = [
     fit: "contain", pixel: true
   },
 
+  {
+    category: "animacoes",
+    title: { pt: "Dino Crisis — fan art", en: "Dino Crisis — fan art" },
+    desc: {
+      pt: "Animações em pixel art em homenagem a Dino Crisis: Regina disparando uma AR-15 no automático e um raptor em ciclo parado.",
+      en: "Pixel art animations as a tribute to Dino Crisis: Regina firing an AR-15 on full auto and a raptor idle cycle."
+    },
+    tags: ["Pixel art", "Fan art"],
+    cover: W + "animacoes/regina_tiro_ar15.gif",
+    images: [W + "animacoes/regina_tiro_ar15.gif", W + "animacoes/raptor_idle.gif"],
+    fit: "contain", pixel: true
+  },
+
   /* ---------- Concept art ---------- */
   { category: "conceptarts", title: "Troll", ...art("conceptarts", "troll_conceptart_gbdracco"), fit: "contain",
     desc: {

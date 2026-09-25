@@ -9,7 +9,12 @@
   const FLOOR = 452;               // linha dos pés, na calçada
   const S = 1.05;                  // escala dos sprites (quadro 128px)
   const FR = 128;
-  const MAX_AMMO = 9, MAX_LIFE = 9, ZOMBIES = 3, ZOMBIE_HP = 3;
+  const MAX_AMMO = 9, MAX_LIFE = 9, ZOMBIE_HP = 3;
+  // dificuldade progressiva: a cada 12 abates ganha uma caveira e chegam mais zumbis
+  // [esquerda, direita] por nível — 3 → 6 → 9 → 12 (máximo)
+  const WAVES = [[0, 3], [3, 3], [4, 5], [6, 6]];
+  const KILLS_PER_SKULL = 12;
+  const level = () => Math.min(WAVES.length - 1, Math.floor(kills / KILLS_PER_SKULL));
 
   // quadros detectados pela largura da imagem; fps de cada animação
   const SHEETS = {
@@ -310,13 +315,14 @@
     kills = 0;
     spawnQ = [];
     over = { fade: 0, t: -1, shown: false };
-    for (let i = 0; i < ZOMBIES; i++) spawn(W + 70 + i * 150);
+    for (let i = 0; i < WAVES[0][1]; i++) spawn(1, W + 70 + i * 150);
     restartBtn.hidden = true;
     Object.keys(input).forEach((k) => (input[k] = false));
   }
-  function spawn(x) {
+  function spawn(side, x) {
+    const off = 60 + Math.random() * 80;
     zombies.push({
-      id: ++uid, x: x ?? W + 60 + Math.random() * 80, hp: ZOMBIE_HP,
+      id: ++uid, from: side, x: x ?? (side > 0 ? W + off : -off), hp: ZOMBIE_HP,
       st: "walk", a: anim("z_walk"), speed: 36 + Math.random() * 16,
       cool: 0.3 + Math.random() * 0.6, idleFor: 0, hitDone: false, fadeOut: 1, dmg: 0
     });
@@ -428,7 +434,7 @@
           if (dist > target + 1) {
             z.x -= side * Math.min(z.speed * dt, dist - target);
             // evento aleatório: um único zumbi para por um instante (andar tem prioridade)
-            if (idleCount === 0 && z.x < W - 30 && dist > STOP + 90 && Math.random() < dt * 0.06) {
+            if (idleCount === 0 && z.x < W - 30 && z.x > 30 && dist > STOP + 90 && Math.random() < dt * 0.06) {
               setZ(z, "idle", "z_idle"); z.idleFor = 1.2 + Math.random() * 1.4;
             }
           } else {
@@ -475,13 +481,20 @@
           break;
       }
     }
-    // remove cadáveres e repõe — sempre 3 no total
-    for (let i = zombies.length - 1; i >= 0; i--) {
-      if (zombies[i].fadeOut <= 0) { zombies.splice(i, 1); spawnQ.push(0.6 + Math.random() * 1.4); }
+    // remove cadáveres e repõe até a cota de cada lado (nunca excede)
+    for (let i = zombies.length - 1; i >= 0; i--) if (zombies[i].fadeOut <= 0) zombies.splice(i, 1);
+    const [qL, qR] = WAVES[level()];
+    for (const [side, quota] of [[-1, qL], [1, qR]]) {
+      const have = zombies.filter((z) => z.from === side).length + spawnQ.filter((q) => q.side === side).length;
+      for (let n = have; n < quota; n++) {
+        const pend = spawnQ.filter((q) => q.side === side).length;
+        spawnQ.push({ side, t: 0.6 + Math.random() * 1.4 + pend * (0.8 + Math.random()) });   // chegam espaçados
+      }
     }
     for (let i = spawnQ.length - 1; i >= 0; i--) {
-      spawnQ[i] -= dt;
-      if (spawnQ[i] <= 0 && zombies.length < ZOMBIES) { spawnQ.splice(i, 1); spawn(); }
+      const q = spawnQ[i];
+      q.t -= dt;
+      if (q.t <= 0) { spawnQ.splice(i, 1); spawn(q.side); }
     }
   }
   function startGrab(z, side) {
@@ -540,6 +553,25 @@
       }
     }
   }
+  // caveirinha em pixel art (indicador de dificuldade)
+  const SKULL = [
+    "..#####..",
+    ".#######.",
+    "#########",
+    "##..#..##",
+    "##..#..##",
+    "####.####",
+    ".#######.",
+    "..#.#.#..",
+    "..#####.."
+  ];
+  function skull(x, y) {
+    const px = 2.6;
+    ctx.fillStyle = "rgba(0,0,0,.6)";
+    SKULL.forEach((row, r) => [...row].forEach((c, k) => { if (c === "#") ctx.fillRect(x + k * px + 1, y + r * px + 1, px, px); }));
+    ctx.fillStyle = "#ece6d6";
+    SKULL.forEach((row, r) => [...row].forEach((c, k) => { if (c === "#") ctx.fillRect(x + k * px, y + r * px, px, px); }));
+  }
   function hud() {
     ctx.save();
     // contador de abates (canto superior esquerdo)
@@ -548,9 +580,11 @@
     ctx.fillStyle = "rgba(0,0,0,.55)";
     const label = `${T("kills")} ${kills}`;
     const tw = ctx.measureText(label).width;
-    ctx.fillRect(14, 14, tw + 24, 36);
+    const skulls = level();
+    ctx.fillRect(14, 14, tw + 24 + (skulls ? 8 + skulls * 26 : 0), 36);
     ctx.fillStyle = "#e8e8ea";
     ctx.fillText(label, 26, 21);
+    for (let i = 0; i < skulls; i++) skull(26 + tw + 10 + i * 26, 19);
 
     // vida: 9 quadradinhos vermelhos (canto superior direito)
     const sq = 16, gap = 5, n = MAX_LIFE;
@@ -672,5 +706,6 @@
   }, true);
 
   window.__jogo = { open, close, get state() { return { L, zombies, kills, over }; },
+    setKills(n) { kills = n; },
     get audio() { return { loaded: Object.keys(A.buf), ctx: A.ctx?.state, vol: A.vol, muted: A.muted, plays: A.count, loops: Object.fromEntries(Object.entries(A.loops).map(([k, l]) => [k, +l.cur.toFixed(2)])) }; } };
 })();

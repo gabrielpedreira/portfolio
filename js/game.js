@@ -415,7 +415,15 @@
   const STOP = 58, GAP = 46;
   function updateZombies(dt) {
     const idleCount = zombies.filter((z) => z.st === "idle").length;
-    const grabbing = zombies.some((z) => z.st === "grab");
+    let grabbing = zombies.some((z) => z.st === "grab");
+    // o da frente ataca quando pode; retorna true se atacou
+    const tryAttack = (z, side) => {
+      if (rank.get(z) !== 0 || z.cool > 0 || lorenaDown() || L.st === "grab") return false;
+      const canGrab = !grabbing && L.st !== "hurt";
+      if (canGrab && Math.random() < 0.28) { startGrab(z, side); grabbing = true; }
+      else { setZ(z, "attack", "z_attack"); groan(z, false, 0.3); }
+      return true;
+    };
     // ordem de chegada em cada lado para formar fila sem sobrepor
     const rank = new Map();
     for (const side of [1, -1]) {
@@ -438,15 +446,15 @@
               setZ(z, "idle", "z_idle"); z.idleFor = 1.2 + Math.random() * 1.4;
             }
           } else {
-            z.a.t -= dt;                                   // parado na fila: segura o quadro
-            if (rank.get(z) === 0 && z.cool <= 0 && !lorenaDown() && L.st !== "grab") {
-              const canGrab = !grabbing && L.st !== "hurt";
-              if (canGrab && Math.random() < 0.28) startGrab(z, side);
-              else { setZ(z, "attack", "z_attack"); groan(z, false, 0.3); }
-            }
+            // chegou na posição: ataca ou espera na fila em idle (não congela)
+            if (!tryAttack(z, side)) { setZ(z, "queue", "z_idle"); z.a.t = Math.random(); }
           }
           break;
         }
+        case "queue":
+          if (dist > target + 6) setZ(z, "walk", "z_walk");   // a fila andou: volta a caminhar
+          else tryAttack(z, side);
+          break;
         case "idle":
           z.idleFor -= dt;
           if (z.idleFor <= 0 || dist <= target + 1) setZ(z, "walk", "z_walk");
@@ -630,7 +638,7 @@
     for (const z of zombies) {
       if (!alive(z) || offScreen(z.x)) continue;
       z.groanIn = (z.groanIn ?? 1 + Math.random() * 4) - dt;
-      if (z.groanIn <= 0) { z.groanIn = 3.5 + Math.random() * 5; if (z.st === "walk" || z.st === "idle") groan(z, false, 1.2); }
+      if (z.groanIn <= 0) { z.groanIn = 3.5 + Math.random() * 5; if (z.st === "walk" || z.st === "idle" || z.st === "queue") groan(z, false, 1.2); }
     }
   }
   function tick(now) {

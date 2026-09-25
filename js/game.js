@@ -33,7 +33,8 @@
     z_hurt:   { src: "zumbi_dano.png",          fps: 12 },
     z_dead:   { src: "zumbi_morte.png",         fps: 12 },
     over:     { src: "game_over.png",           fps: 12 },
-    bug:      { src: "inseto_voando.png",       fps: 12, loop: true }
+    bug:      { src: "inseto_voando.png",       fps: 12, loop: true },
+    heli:     { src: "helicoptero.png",         fps: 16, loop: true }
   };
   const IMGS = { bg: "cenario.webp", front: "cenario_frente.webp", gun: "pistola_hud.png", bullet: "municao_hud.png" };
 
@@ -70,7 +71,7 @@
   /* ---------- Som (Web Audio: baixa latência, sons sobrepostos) ---------- */
   const SND_DIR = "assets/sounds/";
   const SOUNDS = {
-    amb: "ambiencia.mp3", groan: "grunhido_zumbi.mp3", zdie: "zumbi_morte.mp3", zatk: "zumbi_ataque.mp3", ldie: "lorena_morte.mp3", amb2: "ambiencia_evento.mp3",
+    amb: "ambiencia.mp3", groan: "grunhido_zumbi.mp3", zdie: "zumbi_morte.mp3", zatk: "zumbi_ataque.mp3", ldie: "lorena_morte.mp3", amb2: "ambiencia_evento.mp3", heli: "helicoptero.mp3",
     stepsL: "passos_lorena.mp3", stepsZ: "passos_zumbi.mp3",
     shot: "tiro_pistola.mp3", empty: "pistola_descarregada.mp3", bite: "mordida_zumbi.mp3", reload: "recarga_pistola.mp3", hurt: "lorena_dano.mp3"
   };
@@ -79,7 +80,7 @@
   const GROAN_LONG = [4.38, 7.04];
   // mordidas separadas no arquivo — uma a cada dano do agarrão
   const BITES = [[0, 0.79], [1.13, 1.78], [2.43, 2.92], [3.66, 4.44]];
-  const MIX = { zatk: 0.8, ldie: 0.9, amb2: 0.6, amb: 0.35, groan: 0.55, zdie: 0.7, stepsL: 0.55, stepsZ: 0.5, shot: 0.8, empty: 0.8, bite: 0.9, reload: 0.8, hurt: 0.8 };
+  const MIX = { heli: 0.55, zatk: 0.8, ldie: 0.9, amb2: 0.6, amb: 0.35, groan: 0.55, zdie: 0.7, stepsL: 0.55, stepsZ: 0.5, shot: 0.8, empty: 0.8, bite: 0.9, reload: 0.8, hurt: 0.8 };
   const store = {
     get(k) { try { return localStorage.getItem(k); } catch { return null; } },
     set(k, v) { try { localStorage.setItem(k, v); } catch {} }
@@ -318,7 +319,7 @@
     kills = 0;
     spawnQ = [];
     over = { fade: 0, t: -1, shown: false };
-    bug = null;
+    bug = null; heli = null;
     for (let i = 0; i < WAVES[0][1]; i++) spawn(1, W + 70 + i * 150);
     restartBtn.hidden = true;
     Object.keys(input).forEach((k) => (input[k] = false));
@@ -355,6 +356,32 @@
   function milestones() {
     if (kills % 7 === 0) A.play("amb2");
     if (kills % 10 === 0) spawnBug();
+    if (kills % 12 === 0) spawnHeli();
+  }
+  // helicóptero ao fundo (a cada 12 abates): o desenho aponta para a esquerda
+  let heli = null;
+  function spawnHeli() {
+    const dir = Math.random() < 0.5 ? 1 : -1;
+    heli = { dir, x: dir > 0 ? -120 : W + 120, y0: 72 + Math.random() * 22, t: 0, a: anim("heli"), speed: 62 + Math.random() * 16 };
+  }
+  function updateHeli(dt) {
+    if (!heli) return;
+    heli.t += dt; heli.a.t += dt;
+    heli.x += heli.dir * heli.speed * dt;
+    if (heli.x < -160 || heli.x > W + 160) heli = null;
+  }
+  function drawHeli() {
+    if (!heli) return;
+    const s = SHEETS.heli; if (!s.img) return;
+    const size = FR * 0.5;                                   // longe
+    const y = heli.y0 + Math.sin(heli.t * 0.9) * 5;
+    ctx.save();
+    ctx.globalAlpha = 0.92;
+    ctx.translate(heli.x, y);
+    ctx.rotate(0.06 * heli.dir);                              // leve inclinação com o bico para baixo
+    if (heli.dir > 0) ctx.scale(-1, 1);
+    ctx.drawImage(s.img, frameOf(heli.a) * FR, 0, FR, FR, -size / 2, -size / 2, size, size);
+    ctx.restore();
   }
   let bug = null;
   function spawnBug() {
@@ -571,6 +598,7 @@
     ctx.setTransform(k, 0, 0, k, 0, 0);
     ctx.imageSmoothingEnabled = true;
     if (IMGS.bg) ctx.drawImage(IMGS.bg, 0, 0, W, H); else { ctx.fillStyle = "#111"; ctx.fillRect(0, 0, W, H); }
+    drawHeli();
     drawBug();                                               // entre o céu e o recorte dos prédios
     if (IMGS.front) ctx.drawImage(IMGS.front, 0, 0, W, H);
     ctx.imageSmoothingEnabled = false;
@@ -669,6 +697,11 @@
   function soundTick(dt) {
     if (!A.ctx) return;
     A.loop("amb", 1);
+    // som do helicóptero: cresce ao se aproximar do centro e some ao sair
+    if (heli || A.loops.heli) {
+      const g = heli ? Math.max(0, 1 - Math.abs(heli.x - W / 2) / (W / 2 + 140)) : 0;
+      A.loop("heli", heli ? 0.15 + 0.85 * g : 0, heli ? panOf(heli.x) : 0);
+    }
     A.loop("stepsL", L.st === "walk" ? 1 : 0, panOf(L.x) * 0.6);
     let zg = 0, zx = 0, n = 0;
     for (const z of zombies) {
@@ -693,6 +726,7 @@
     updateLorena(dt);
     updateZombies(dt);
     updateBug(dt);
+    updateHeli(dt);
     soundTick(dt);
     if (over.t >= 0) { over.t += dt; over.fade = Math.min(0.78, over.t / 2.2); }
     draw();
@@ -760,5 +794,6 @@
   window.__jogo = { open, close, get state() { return { L, zombies, kills, over }; },
     setKills(n) { kills = n; },
     bug() { spawnBug(); },
+    heli() { spawnHeli(); },
     get audio() { return { loaded: Object.keys(A.buf), ctx: A.ctx?.state, vol: A.vol, muted: A.muted, plays: A.count, loops: Object.fromEntries(Object.entries(A.loops).map(([k, l]) => [k, +l.cur.toFixed(2)])) }; } };
 })();

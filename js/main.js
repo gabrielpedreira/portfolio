@@ -254,6 +254,13 @@
     if (e.target.matches?.("[data-cat]") && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); openCategory(e.target.dataset.cat); }
   });
   $("#catBack").addEventListener("click", () => openCategory(null));
+  // logo "GP." volta para a home: fecha a categoria aberta e sobe para o topo
+  $(".nav__logo")?.addEventListener("click", (e) => {
+    e.preventDefault();
+    if (activeFilter) openCategory(null, false);
+    try { history.replaceState(null, "", location.pathname + location.search); } catch {}
+    scrollTo({ top: 0, behavior: "smooth" });
+  });
   // Link direto: site.com/#jogos abre a categoria
   // Ao ATUALIZAR a página tudo volta ao estado inicial: topo, sem categoria aberta, sem #âncora.
   // (Um link direto novo, ex.: site.com/#jogos, continua abrindo a categoria.)

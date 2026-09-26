@@ -501,3 +501,4 @@ html.game-open { overflow: hidden; }
 .game.is-touch .game__pad-quit { transform: translateX(calc(-50% - 28px)); }
 .game.is-touch .game__pad-quit.is-on { transform: translateX(calc(-50% - 28px)) scale(.92); }
 @media (max-width: 700px) { .game__vol span, .game__vol kbd { display: none; } .game__vol input { width: 80px; } }
+.game__pad-r .is-stab { border-color: rgba(200,210,230,.5); }

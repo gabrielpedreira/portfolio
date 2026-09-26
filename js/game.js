@@ -22,6 +22,7 @@
     l_walk:   { src: "lorena_andando.png",      fps: 10, loop: true },
     l_shoot:  { src: "lorena_tiro.png",         fps: 15 },
     l_empty:  { src: "lorena_descarregada.png", fps: 15 },
+    l_stab:   { src: "lorena_facada.png",       fps: 15 },
     l_reload: { src: "lorena_recarga.png",      fps: 15 },
     l_hurt:   { src: "lorena_dano.png",         fps: 15 },
     l_grab:   { src: "lorena_agarrada.png",     fps: 8,  loop: true },
@@ -40,10 +41,10 @@
 
   const TXT = {
     pt: { kills: "ZUMBIS", restart: "Recomeçar", loading: "Carregando…", close: "Fechar jogo",
-          walkR: "anda pra direita", walkL: "anda pra esquerda", shoot: "atira", reload: "recarrega", quit: "fecha o jogo",
+          walkR: "anda pra direita", walkL: "anda pra esquerda", shoot: "atira", stab: "facada", reload: "recarrega", quit: "fecha o jogo",
           rotate: "Gire o celular para jogar", quitBtn: "Fechar", volume: "volume", mute: "Silenciar", unmute: "Ativar som" },
     en: { kills: "ZOMBIES", restart: "Restart", loading: "Loading…", close: "Close game",
-          walkR: "walk right", walkL: "walk left", shoot: "shoot", reload: "reload", quit: "close the game",
+          walkR: "walk right", walkL: "walk left", shoot: "shoot", stab: "stab", reload: "reload", quit: "close the game",
           rotate: "Rotate your phone to play", quitBtn: "Close", volume: "volume", mute: "Mute", unmute: "Unmute" }
   };
   // celular/tablet: tela cheia, pede para girar e mostra botões na tela
@@ -73,14 +74,15 @@
   const SOUNDS = {
     amb: "ambiencia.mp3", groan: "grunhido_zumbi.mp3", zdie: "zumbi_morte.mp3", zatk: "zumbi_ataque.mp3", ldie: "lorena_morte.mp3", amb2: "ambiencia_evento.mp3", heli: "helicoptero.mp3",
     stepsL: "passos_lorena.mp3", stepsZ: "passos_zumbi.mp3",
-    shot: "tiro_pistola.mp3", empty: "pistola_descarregada.mp3", bite: "mordida_zumbi.mp3", reload: "recarga_pistola.mp3", hurt: "lorena_dano.mp3"
+    shot: "tiro_pistola.mp3", empty: "pistola_descarregada.mp3", stab: "facada.mp3", bite: "mordida_zumbi.mp3", reload: "recarga_pistola.mp3", hurt: "lorena_dano.mp3"
   };
   // trechos do arquivo de grunhidos (segundos): curtos p/ tiro/ataque, longo p/ agarrão
   const GROANS = [[0, 1.14], [1.69, 2.69], [3.13, 3.88], [7.36, 8.1]];
   const GROAN_LONG = [4.38, 7.04];
   // mordidas separadas no arquivo — uma a cada dano do agarrão
+  const STABS = [[1.38, 1.95], [4.22, 4.79], [7.08, 7.64]];   // golpes separados no arquivo da facada
   const BITES = [[0, 0.79], [1.13, 1.78], [2.43, 2.92], [3.66, 4.44]];
-  const MIX = { heli: 0.55, zatk: 0.8, ldie: 0.9, amb2: 0.6, amb: 0.35, groan: 0.55, zdie: 0.7, stepsL: 0.55, stepsZ: 0.5, shot: 0.8, empty: 0.8, bite: 0.9, reload: 0.8, hurt: 0.8 };
+  const MIX = { stab: 0.9, heli: 0.55, zatk: 0.8, ldie: 0.9, amb2: 0.6, amb: 0.35, groan: 0.55, zdie: 0.7, stepsL: 0.55, stepsZ: 0.5, shot: 0.8, empty: 0.8, bite: 0.9, reload: 0.8, hurt: 0.8 };
   const store = {
     get(k) { try { return localStorage.getItem(k); } catch { return null; } },
     set(k, v) { try { localStorage.setItem(k, v); } catch {} }
@@ -195,6 +197,7 @@
             <button type="button" data-k="right">▶</button>
           </div>
           <div class="game__pad-r">
+            <button type="button" data-k="stab" class="is-stab"><b>A</b><small data-t="stab"></small></button>
             <button type="button" data-k="reload" class="is-reload"><b>S</b><small data-t="reload"></small></button>
             <button type="button" data-k="shoot" class="is-shoot"><b>D</b><small data-t="shoot"></small></button>
           </div>
@@ -210,6 +213,7 @@
           <button type="button" data-k="left"><kbd>←</kbd><span data-t="walkL"></span></button>
           <button type="button" data-k="right"><kbd>→</kbd><span data-t="walkR"></span></button>
           <button type="button" data-k="shoot"><kbd>D</kbd><span data-t="shoot"></span></button>
+          <button type="button" data-k="stab"><kbd>A</kbd><span data-t="stab"></span></button>
           <button type="button" data-k="reload"><kbd>S</kbd><span data-t="reload"></span></button>
           <button type="button" data-k="quit"><kbd>B</kbd><span data-t="quit"></span></button>
           <div class="game__vol"><button type="button" class="game__vol-btn" data-vol-ico>${SPEAKER}</button><kbd>M</kbd><input type="range" min="0" max="100" step="5" aria-label="Volume"></div>
@@ -278,10 +282,11 @@
   }
 
   /* ---------- entrada ---------- */
-  const input = { left: false, right: false, shoot: false, shootQ: false, reload: false };
+  const input = { left: false, right: false, shoot: false, shootQ: false, reload: false, stab: false };
   function press(k, down) {
     if (k === "shoot") { if (down && !input.shoot) input.shootQ = true; input.shoot = down; }
     else if (k === "reload") { if (down) input.reload = true; }
+    else if (k === "stab") { if (down) input.stab = true; }
     else input[k] = down;
   }
   function onKey(e) {
@@ -293,6 +298,7 @@
     else if (k === "ArrowRight") act = "right";
     else if (k === "d") act = "shoot";
     else if (k === "s") act = "reload";
+    else if (k === "a") act = "stab";
     else if (k === "m") { e.preventDefault(); e.stopPropagation(); if (down && !e.repeat) A.toggleMute(); return; }
     else if ((k === "b" || k === "Escape") && down) { e.preventDefault(); e.stopPropagation(); return close(); }
     else if (k === "ArrowUp" || k === "ArrowDown" || k === " ") { e.preventDefault(); return; }
@@ -333,7 +339,7 @@
     });
     zombies[zombies.length - 1].a.t = Math.random();
   }
-  const setL = (st, key) => { L.st = st; L.a = anim(key); L.fired = false; };
+  const setL = (st, key) => { L.st = st; L.a = anim(key); L.fired = false; L.hit = false; };
   const setZ = (z, st, key) => { z.st = st; z.a = anim(key); z.hitDone = false; };
   const alive = (z) => z.st !== "dead";
   const lorenaDown = () => L.st === "dead";
@@ -416,6 +422,11 @@
           input.reload = false;
           if (L.ammo < MAX_AMMO) { setL("reload", "l_reload"); break; }
         }
+        if (input.stab) {
+          input.stab = false; input.shootQ = false;
+          setL("stab", "l_stab");                    // facada: ciclo completo, não interrompe
+          break;
+        }
         if (input.shootQ || input.shoot) {
           input.shootQ = false;
           if (L.ammo > 0) setL("shoot", "l_shoot");
@@ -444,6 +455,12 @@
       case "empty":
         if (done(L.a)) setL("idle", "l_idle");
         break;
+      case "stab":
+        if (!L.fired && frameOf(L.a) >= 3) { L.fired = true; A.play("stab", { seg: STABS[(Math.random() * STABS.length) | 0], pan: panOf(L.x) * 0.6 }); }
+        if (!L.hit && frameOf(L.a) >= 4) { L.hit = true; stab(); }
+        if (done(L.a)) { L.hit = false; setL("idle", "l_idle"); }
+        input.shootQ = false; input.stab = false;
+        break;
       case "reload":
         if (!L.fired && frameOf(L.a) >= 7) { L.fired = true; A.play("reload", { pan: panOf(L.x) * 0.6 }); }   // som no encaixe do pente
         if (done(L.a)) { L.ammo = MAX_AMMO; setL("idle", "l_idle"); }
@@ -460,6 +477,21 @@
         break;
     }
   }
+  function hitZombie(best) {
+    best.hp--;
+    if (best.hp <= 0) { setZ(best, "dead", "z_dead"); kills++; A.play("zdie", { gain: nearGain(best.x), pan: panOf(best.x) }); milestones(); }
+    else { setZ(best, "hurt", "z_hurt"); groan(best, false, 0.25); best.cool = Math.max(best.cool, 0.25); }
+  }
+  // golpe corpo a corpo: acerta o zumbi mais próximo à frente, ao alcance da faca
+  function stab() {
+    let best = null, bd = 1e9;
+    for (const z of zombies) {
+      if (!alive(z) || z.st === "grab") continue;
+      const d = (z.x - L.x) * L.dir;
+      if (d > -10 && d <= STOP + 24 && d < bd) { bd = d; best = z; }
+    }
+    if (best) hitZombie(best);
+  }
   function fire() {
     let best = null, bd = 1e9;
     for (const z of zombies) {
@@ -469,9 +501,7 @@
       if (d > -10 && d < bd) { bd = d; best = z; }
     }
     if (!best) return;
-    best.hp--;
-    if (best.hp <= 0) { setZ(best, "dead", "z_dead"); kills++; A.play("zdie", { gain: nearGain(best.x), pan: panOf(best.x) }); milestones(); }
-    else { setZ(best, "hurt", "z_hurt"); groan(best, false, 0.25); best.cool = Math.max(best.cool, 0.25); }
+    hitZombie(best);
   }
 
   /* ---------- Zumbis ---------- */

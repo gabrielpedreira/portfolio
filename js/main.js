@@ -104,7 +104,24 @@
   artLayer.setAttribute("aria-hidden", "true");
   document.body.prepend(artLayer);
   let artInView = true;
+  // fundo ilustrado da página: surge devagar quando a imagem termina de carregar
+  const bgArt = $("#bgArt");
+  if (bgArt) {
+    const pre = new Image();
+    pre.onload = () => requestAnimationFrame(() => bgArt.classList.add("is-in"));
+    pre.src = "assets/img/fundos/inicial.webp";
+    // a arte cobre a página inicial inteira (do topo ao rodapé); com uma categoria aberta ela não reescala
+    const fitBg = () => {
+      if (activeFilter) return;
+      bgArt.style.height = "0px";
+      bgArt.style.height = document.documentElement.scrollHeight + "px";
+    };
+    addEventListener("load", fitBg);
+    addEventListener("resize", () => { clearTimeout(fitBg.t); fitBg.t = setTimeout(fitBg, 150); });
+    setTimeout(fitBg, 50);
+  }
   function setTopicArt(id) {
+    bgArt?.classList.toggle("is-dim", !!id);          // com uma categoria aberta, o fundo geral recua
     const c = CATEGORIES.find((c) => c.id === id);
     const src = c?.bg || null;
     const cur = artLayer.querySelector(".topic-art__img:not(.is-out)");

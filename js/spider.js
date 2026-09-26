@@ -56,8 +56,8 @@
     shootMin: 1800,       // ms mínimo do disparo
     shootMax: 9000,       // ms máximo do disparo (chão muito longe)
     stayAfterCut: 4000,   // ms parada depois de cortarem o símbolo, antes de subir
-    pullMinSpeed: 360,    // px/s mínimo puxando o símbolo
-    pullMaxTime: 7000,    // ms máximo puxando (distâncias grandes puxam mais rápido)
+    pullMinSpeed: 700,    // px/s mínimo puxando o símbolo
+    pullMaxTime: 3500,    // ms máximo puxando (distâncias grandes puxam mais rápido)
     dropGravity: 1900,    // px/s² na queda do símbolo
     symSpin: 1.3,         // rad/s — giro lento (anti-horário) do símbolo caindo
     riseSpeed: 260,       // px/s subindo brava

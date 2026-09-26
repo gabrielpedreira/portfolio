@@ -98,8 +98,34 @@
     observeReveal();
   }
 
+  /* ---------- Arte de fundo de cada categoria (surge pela direita) ---------- */
+  const artLayer = document.createElement("div");
+  artLayer.className = "topic-art";
+  artLayer.setAttribute("aria-hidden", "true");
+  document.body.prepend(artLayer);
+  let artInView = true;
+  function setTopicArt(id) {
+    const c = CATEGORIES.find((c) => c.id === id);
+    const src = c?.bg || null;
+    const cur = artLayer.querySelector(".topic-art__img:not(.is-out)");
+    if (cur && cur.dataset.src === src) return;
+    if (cur) { cur.classList.add("is-out"); setTimeout(() => cur.remove(), 900); }   // sai pela direita
+    if (!src) return;
+    const img = new Image();
+    img.className = "topic-art__img"; img.alt = ""; img.dataset.src = src; img.decoding = "async";
+    img.onload = () => requestAnimationFrame(() => requestAnimationFrame(() => img.classList.add("is-in")));
+    img.src = src;
+    artLayer.append(img);
+  }
+  // só aparece enquanto a seção Trabalhos estiver na tela
+  document.addEventListener("topicchange", (e) => {
+    artInView = e.detail.id === "trabalhos";
+    artLayer.classList.toggle("is-hidden", !artInView);
+  });
+
   function openCategory(id, scroll = true) {
     activeFilter = id;
+    setTopicArt(id);
     renderView();
     try { history.replaceState(null, "", id ? "#" + id : "#trabalhos"); } catch {}
     if (scroll) $("#trabalhos").scrollIntoView({ behavior: "smooth" });
@@ -214,7 +240,7 @@
   addEventListener("load", () => { if (!location.hash) scrollTo({ top: 0, behavior: "instant" }); });
   scrollTo(0, 0);
   const initial = location.hash.slice(1);
-  if (CATEGORIES.some((c) => c.id === initial)) activeFilter = initial;
+  if (CATEGORIES.some((c) => c.id === initial)) { activeFilter = initial; setTopicArt(initial); }
 
   /* ---------- Prévia animada de spritesheets ---------- */
   let last = 0;

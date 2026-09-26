@@ -55,19 +55,19 @@ window.STACK = [
 
 /* Categorias de trabalhos (a ordem define os filtros) — id = nome da pasta em /trabalhos */
 window.CATEGORIES = [
-  { id: "jogos", cover: "assets/works/jogos/infestacao-logo.webp", fit: "contain",
+  { id: "jogos", bg: "assets/img/fundos/jogos.webp", cover: "assets/works/jogos/infestacao-logo.webp", fit: "contain",
     label: { pt: "Jogos", en: "Games" },
     blurb: { pt: "Jogos autorais: design, arte, personagens e bestiário.", en: "Original games: design, art, characters and bestiary." } },
   { id: "programacao", cover: "assets/works/programacao/sketchmotion_editor_thumb.webp",
     label: { pt: "Programas", en: "Software" },
     blurb: { pt: "Ferramentas e sistemas que desenvolvi.", en: "Tools and systems I've built." } },
-  { id: "conceptarts", cover: "assets/works/conceptarts/troll_conceptart_gbdracco_thumb.webp",
+  { id: "conceptarts", bg: "assets/img/fundos/conceptarts.webp", cover: "assets/works/conceptarts/troll_conceptart_gbdracco_thumb.webp",
     label: { pt: "Concept art", en: "Concept art" },
     blurb: { pt: "Criaturas e personagens do rascunho à cor.", en: "Creatures and characters from sketch to colour." } },
-  { id: "esculturas", cover: "assets/works/esculturas/arakne_by_gbdracco2_thumb.webp",
+  { id: "esculturas", bg: "assets/img/fundos/esculturas.webp", cover: "assets/works/esculturas/arakne_by_gbdracco2_thumb.webp",
     label: { pt: "Esculturas", en: "Sculptures" },
     blurb: { pt: "Peças originais e fan arts esculpidas.", en: "Original pieces and sculpted fan art." } },
-  { id: "animacoes", cover: "assets/works/animacoes/lorena_tiropistola.gif", fit: "contain", pixel: true,
+  { id: "animacoes", bg: "assets/img/fundos/animacoes.webp", cover: "assets/works/animacoes/lorena_tiropistola.gif", fit: "contain", pixel: true,
     label: { pt: "Animações", en: "Animations" },
     blurb: { pt: "Animação frame a frame em pixel art.", en: "Frame-by-frame pixel art animation." } },
   { id: "ilustracoes", label: { pt: "Ilustrações", en: "Illustrations" } }

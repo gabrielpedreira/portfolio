@@ -58,7 +58,7 @@ window.CATEGORIES = [
   { id: "jogos", bg: "assets/img/fundos/jogos.webp", cover: "assets/works/jogos/infestacao-logo.webp", fit: "contain",
     label: { pt: "Jogos", en: "Games" },
     blurb: { pt: "Jogos autorais: design, arte, personagens e bestiário.", en: "Original games: design, art, characters and bestiary." } },
-  { id: "programacao", bg: "assets/img/fundos/inicial_v2.webp", cover: "assets/works/programacao/sketchmotion_editor_thumb.webp",
+  { id: "programacao", bg: "assets/img/fundos/inicio_v2.webp", cover: "assets/works/programacao/sketchmotion_editor_thumb.webp",
     label: { pt: "Programas", en: "Software" },
     blurb: { pt: "Ferramentas e sistemas que desenvolvi.", en: "Tools and systems I've built." } },
   { id: "conceptarts", bg: "assets/img/fundos/conceptarts.webp", cover: "assets/works/conceptarts/troll_conceptart_gbdracco_thumb.webp",

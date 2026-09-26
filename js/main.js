@@ -106,7 +106,7 @@
   let artInView = true;
   // página inicial: uma arte por seção, cada uma surge de um lado ao rolar até ela
   const HOME_ART = [
-    { sec: "#inicio",     src: "assets/img/fundos/inicio.webp",      side: "right", top: "4%",  w: "min(56vw, 900px)" },
+    { sec: "#inicio",     src: "assets/img/fundos/inicio_v2.webp",      side: "right", top: "4%",  w: "min(56vw, 900px)" },
     { sec: "#sobre",      src: "assets/img/fundos/esculturas.webp",  side: "left",  top: "0",   w: "min(52vw, 820px)" },
     { sec: "#stack",      src: "assets/img/fundos/conceptarts.webp", side: "right", top: "-6%", w: "min(40vw, 620px)" },
     { sec: "#trabalhos",  src: "assets/img/fundos/jogos.webp",       side: "left",  top: "2%",  w: "min(40vw, 620px)", work: true },
@@ -129,8 +129,8 @@
     if (homeArtObs) homeArtObs.observe(img); else img.classList.add("is-in");
   });
   function setTopicArt(id) {
-    // com uma categoria aberta, as artes da página inicial em Trabalhos dão lugar à arte da categoria
-    homeArts.forEach((img) => img.dataset.work && img.classList.toggle("is-away", !!id));
+    // com uma categoria aberta, nenhuma arte da página inicial aparece
+    homeArts.forEach((img) => img.classList.toggle("is-away", !!id));   // artes da página inicial saem; fica só a da categoria
     const c = CATEGORIES.find((c) => c.id === id);
     const src = c?.bg || null;
     const cur = artLayer.querySelector(".topic-art__img:not(.is-out)");

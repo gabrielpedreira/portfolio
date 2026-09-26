@@ -527,3 +527,110 @@ html.game-open { overflow: hidden; }
 .gwarn__top { position: absolute; left: 0; right: 0; top: 0; height: 30%; display: grid; place-content: center; }
 .gwarn__bottom { position: absolute; left: 0; right: 0; top: 38%; bottom: 0; display: flex; flex-direction: column; justify-content: center; gap: .9cqw; }
 .gwarn__gold { color: #dcc38f; font-weight: 600; font-size: 1.16em; line-height: 1.25; }
+
+/* =====================================================================
+   Movimento e apresentação (entrada ao rolar, prévias padronizadas)
+   ===================================================================== */
+:root { --ease-out: cubic-bezier(.16, 1, .3, 1); }
+
+/* --- Categorias: prévia com altura padrão (a imagem inteira abre ao clicar) --- */
+.cat__media { position: relative; }
+.cat__media img { position: absolute; inset: 0; width: 100%; height: 100%; }
+@media (min-width: 900px) {
+  .cat { min-height: 0; height: 340px; }
+  .cat .cat__media, .cat--wide .cat__media { min-height: 0; aspect-ratio: auto; }
+}
+.cat__media::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, transparent 50%, rgba(10,10,13,.72)); opacity: .55; transition: opacity .35s; pointer-events: none; }
+.cat:hover .cat__media::after { opacity: 1; }
+.cat__hint { position: absolute; left: 14px; bottom: 14px; z-index: 1; display: inline-flex; align-items: center; gap: 6px;
+  font-size: .72rem; padding: 6px 12px; border-radius: 999px; background: rgba(10,10,13,.8); border: 1px solid var(--line);
+  color: var(--text); backdrop-filter: blur(6px); transition: transform .3s var(--ease-out), border-color .3s, color .3s; }
+.cat:hover .cat__hint { transform: translateY(-3px); border-color: var(--accent); color: var(--accent); }
+.cat__cta { align-self: flex-start; display: inline-flex; align-items: center; gap: 10px; margin-top: 18px; padding: 11px 20px;
+  border-radius: 999px; border: 1px solid rgba(232,165,90,.5); background: var(--accent-soft); color: var(--accent);
+  font-family: var(--mono); font-size: .8rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase;
+  transition: background .25s, color .25s, box-shadow .25s, transform .25s; }
+.cat__cta svg { width: 16px; height: 16px; transition: transform .25s var(--ease-out); }
+.cat:hover .cat__cta, .cat:focus-visible .cat__cta { background: var(--accent); color: #1a1208; box-shadow: 0 10px 28px rgba(232,165,90,.25); }
+.cat:hover .cat__cta svg { transform: translateX(5px); }
+
+/* --- Cards de trabalho: imagem com altura contida, texto ocupa o espaço --- */
+.card__media img { position: absolute; inset: 0; }
+@media (min-width: 900px) {
+  .card { min-height: 0; }
+  .card .card__media { min-height: clamp(360px, 58vh, 560px); flex: 1.05; }
+  .card--featured .card__media { min-height: clamp(340px, 50vh, 480px); }
+  .card .card__body { padding: 44px 48px; gap: 16px; }
+}
+.card__title { font-size: clamp(1.35rem, 2.1vw, 2rem); letter-spacing: -.02em; line-height: 1.15; }
+.card__title::after { content: ""; display: block; width: 40px; height: 3px; border-radius: 2px; background: var(--accent); margin-top: 14px; opacity: .85; }
+.card__desc { font-size: 1.02rem; line-height: 1.75; display: grid; gap: 14px; align-content: start; }
+.card__desc p + p { margin-top: 0; }
+.card__desc p.lead { font-size: clamp(1.1rem, 1.45vw, 1.32rem); line-height: 1.55; color: var(--text); font-weight: 500; letter-spacing: -.005em; }
+.card__desc mark.hl { background: none; color: var(--accent); font-weight: 600; }
+.card__hint { position: absolute; left: 12px; bottom: 12px; display: inline-flex; align-items: center; gap: 6px; font-size: .7rem;
+  padding: 5px 10px; border-radius: 999px; background: rgba(10,10,13,.8); border: 1px solid var(--line); backdrop-filter: blur(6px);
+  opacity: .85; transition: opacity .25s, border-color .25s, color .25s; pointer-events: none; }
+.card__hint svg { width: 12px; height: 12px; }
+.card__media:hover .card__hint { opacity: 1; border-color: var(--accent); color: var(--accent); }
+.card { animation: none; }
+
+/* --- Entrada ao rolar (só quando o JS liga o movimento) --- */
+.reveal.is-in { animation: none; }
+.js-motion .reveal:not(.is-in), .js-motion .reveal-card:not(.is-in), .js-motion .reveal-item:not(.is-in) { opacity: 0; }
+.js-motion .reveal.is-in:not(.no-anim) { animation: mFadeUp .9s var(--ease-out) var(--d, 0ms) backwards; }
+
+.js-motion .section__head.is-in:not(.no-anim) { animation: none; }
+.js-motion .section__head.is-in:not(.no-anim) .section__num { animation: mSlideR .7s var(--ease-out) backwards; }
+.js-motion .section__head.is-in:not(.no-anim) h2 { animation: mRise .9s var(--ease-out) .08s backwards; }
+
+/* cards: sobem, a imagem "abre" como uma cortina e o texto entra em sequência */
+.js-motion .reveal-card.is-in:not(.no-anim) { animation: mCardUp 1s var(--ease-out) backwards; }
+.js-motion .reveal-card.is-in:not(.no-anim) > .cat__media,
+.js-motion .reveal-card.is-in:not(.no-anim) > .card__media { animation: mWipeL 1.15s var(--ease-out) .12s backwards; }
+@media (min-width: 900px) {
+  .js-motion .reveal-card.is-in:not(.no-anim):nth-child(even) > .cat__media,
+  .js-motion .reveal-card.is-in:not(.no-anim):nth-child(even) > .card__media { animation-name: mWipeR; }
+}
+.js-motion .reveal-card.is-in:not(.no-anim) > .cat__body > *,
+.js-motion .reveal-card.is-in:not(.no-anim) > .card__body > * { animation: mFadeUp .75s var(--ease-out) backwards; }
+.js-motion .reveal-card.is-in:not(.no-anim) > * > :nth-child(1) { animation-delay: .30s; }
+.js-motion .reveal-card.is-in:not(.no-anim) > * > :nth-child(2) { animation-delay: .38s; }
+.js-motion .reveal-card.is-in:not(.no-anim) > * > :nth-child(3) { animation-delay: .46s; }
+.js-motion .reveal-card.is-in:not(.no-anim) > * > :nth-child(4) { animation-delay: .54s; }
+.js-motion .reveal-card.is-in:not(.no-anim) > * > :nth-child(5) { animation-delay: .62s; }
+.js-motion .reveal-card.is-in:not(.no-anim) > * > :nth-child(n+6) { animation-delay: .70s; }
+
+/* stacks: surgem uma a uma e os itens "brotam" em seguida */
+.js-motion .stack__group.is-in:not(.no-anim) { animation: mStackIn 1s var(--ease-out) var(--d, 0ms) backwards; }
+.js-motion .stack__group.is-in:not(.no-anim) h3 i { animation: mDot .6s var(--ease-out) calc(var(--d, 0ms) + 250ms) backwards; }
+.js-motion .stack__group.is-in:not(.no-anim) .chips li { animation: mPop .5s cubic-bezier(.3, 1.45, .55, 1) backwards;
+  animation-delay: calc(var(--d, 0ms) + 380ms + var(--i, 0) * 45ms); }
+
+/* links: deslizam da esquerda, um após o outro */
+.js-motion .link.is-in:not(.no-anim) { animation: mSlideR .8s var(--ease-out) var(--d, 0ms) backwards; }
+
+/* topo da página ao carregar */
+.js-motion .hero__content > * { animation: mFadeUp 1s var(--ease-out) backwards; }
+.js-motion .hero__content > :nth-child(1) { animation-delay: .05s; }
+.js-motion .hero__content > :nth-child(2) { animation-delay: .15s; }
+.js-motion .hero__content > :nth-child(3) { animation-delay: .25s; }
+.js-motion .hero__content > :nth-child(4) { animation-delay: .35s; }
+.js-motion .hero__content > :nth-child(5) { animation-delay: .45s; }
+.js-motion .hero__content > :nth-child(n+6) { animation-delay: .55s; }
+.js-motion .hero__photo { animation: mPhoto 1.2s var(--ease-out) .25s backwards; }
+
+@keyframes mFadeUp { from { opacity: 0; transform: translateY(26px); } }
+@keyframes mRise { from { opacity: 0; transform: translateY(18px); clip-path: inset(0 0 100% 0); } to { clip-path: inset(0 0 -10% 0); } }
+@keyframes mSlideR { from { opacity: 0; transform: translateX(-28px); } }
+@keyframes mCardUp { from { opacity: 0; transform: translateY(56px); } }
+@keyframes mWipeL { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
+@keyframes mWipeR { from { clip-path: inset(0 0 0 100%); } to { clip-path: inset(0 0 0 0); } }
+@keyframes mStackIn { from { opacity: 0; transform: translateY(64px) scale(.92); filter: blur(8px); } 60% { filter: blur(0); } }
+@keyframes mDot { from { transform: scale(0) rotate(-90deg); } }
+@keyframes mPop { from { opacity: 0; transform: translateY(8px) scale(.6); } }
+@keyframes mPhoto { from { opacity: 0; transform: scale(.94); filter: blur(10px); } }
+@media (prefers-reduced-motion: reduce) {
+  .js-motion .reveal:not(.is-in), .js-motion .reveal-card:not(.is-in), .js-motion .reveal-item:not(.is-in) { opacity: 1; }
+}
+.cat .cat__blurb { flex: 0 0 auto; }

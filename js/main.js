@@ -27,7 +27,7 @@
   $("#langToggle").addEventListener("click", () => {
     lang = lang === "pt" ? "en" : "pt";
     store.set("lang", lang);
-    applyLang();
+    instant = true; applyLang(); instant = false;   // troca de idioma não reanima a página
   });
 
   /* ---------- Ícones ---------- */
@@ -49,13 +49,13 @@
 
   function renderStack() {
     $("#stackGrid").innerHTML = STACK.map((g) => `
-      <article class="stack__group reveal" style="--c:${g.color}">
+      <article class="stack__group reveal-item" style="--c:${g.color}">
         <h3><i></i>${tx(g.title)}</h3>
         <p>${tx(g.desc)}</p>
-        <ul class="chips">${g.items.map((it) => {
+        <ul class="chips">${g.items.map((it, j) => {
           const learning = typeof it === "object" && it.learning;
           const name = typeof it === "object" && it.name ? it.name : tx(it);
-          return `<li class="${learning ? "is-learning" : ""}" ${learning ? `title="${t("stack.learning")}"` : ""}>${name}</li>`;
+          return `<li class="${learning ? "is-learning" : ""}" style="--i:${j}" ${learning ? `title="${t("stack.learning")}"` : ""}>${name}</li>`;
         }).join("")}</ul>
       </article>`).join("");
   }
@@ -72,13 +72,14 @@
     $("#catsGrid").innerHTML = CATEGORIES.filter((c) => worksOf(c.id).length).map((c, i) => {
       const n = worksOf(c.id).length;
       const cls = [c.fit === "contain" ? "is-contain" : "", c.pixel ? "is-pixel" : ""].join(" ");
-      return `<div class="cat ${i === 0 ? "cat--wide" : ""}" data-cat="${c.id}" role="button" tabindex="0">
-        <span class="cat__media ${cls}">${c.cover ? `<img src="${c.cover}" alt="" loading="lazy">` : ""}</span>
+      return `<div class="cat reveal-card ${i === 0 ? "cat--wide" : ""}" data-cat="${c.id}" role="button" tabindex="0">
+        <span class="cat__media ${cls}">${c.cover ? `<img src="${c.cover}" alt="" loading="lazy">` : ""}
+          <span class="cat__hint mono">${t("work.clickHint")}</span></span>
         <span class="cat__body">
           <span class="cat__count mono">${n} ${n === 1 ? t("work.item") : t("work.items")}</span>
           <span class="cat__title">${tx(c.label)}</span>
           <span class="cat__blurb">${tx(c.blurb) || ""}</span>
-          <span class="cat__cta mono">${t("work.open")} →</span>
+          <span class="cat__cta"><span>${t("work.openMore")}</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h13M13 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
           ${c.id === "jogos" ? playBtn() : ""}
         </span>
       </div>`;
@@ -94,6 +95,7 @@
     $("#catTitle").textContent = tx(c.label);
     $("#catBlurb").textContent = tx(c.blurb) || "";
     renderWorks();
+    observeReveal();
   }
 
   function openCategory(id, scroll = true) {
@@ -106,6 +108,12 @@
   function catLabel(id) {
     const c = CATEGORIES.find((c) => c.id === id);
     return c ? tx(c.label) : id;
+  }
+
+  // descrição: 1º parágrafo vira "lead" (maior); ==trecho== ganha destaque na cor de acento
+  function descHTML(txt) {
+    const ps = String(txt || "").split("\n").map((p) => p.trim()).filter(Boolean);
+    return ps.map((p, i) => `<p${i === 0 && ps.length > 1 ? ' class="lead"' : ""}>${p.replace(/==(.+?)==/g, '<mark class="hl">$1</mark>')}</p>`).join("");
   }
 
   function renderWorks() {
@@ -133,6 +141,7 @@
         media = `<div class="card__media is-empty" data-empty="${t("work.noimg")}">`;
       }
       media += `<span class="card__badge">${catLabel(w.category)}</span>`;
+      if (w.cover || w.sprite) media += `<span class="card__hint mono"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>${t("work.zoomHint")}</span>`;
       if (w.status) media += `<span class="card__status">${tx(w.status)}</span>`;
       media += `</div>`;
 
@@ -143,11 +152,11 @@
         L.play && `<a href="${L.play}" target="_blank" rel="noopener">${t("work.play")} ↗</a>`
       ].filter(Boolean).join("");
 
-      return `<article class="card ${w.featured ? "card--featured" : ""}" style="animation-delay:${i * 60}ms">
+      return `<article class="card reveal-card ${w.featured ? "card--featured" : ""}">
         ${media}
         <div class="card__body">
           <h3 class="card__title">${tx(w.title)}</h3>
-          <div class="card__desc">${String(tx(w.desc) || "").split("\n").map((t) => `<p>${t}</p>`).join("")}</div>
+          <div class="card__desc">${descHTML(tx(w.desc))}</div>
           ${w.details ? `<dl class="card__details">${w.details.map((d) => `<div><dt>${tx(d.label)}</dt><dd>${d.items.map(tx).join(d.items.every((i) => typeof i === "string") ? " · " : "<br>")}</dd></div>`).join("")}</dl>` : ""}
           ${w.tags?.length ? `<ul class="chips">${w.tags.map((tg) => `<li>${tg}</li>`).join("")}</ul>` : ""}
           ${links ? `<div class="card__links">${links}</div>` : ""}
@@ -160,7 +169,7 @@
   function renderLinks() {
     $("#linksGrid").innerHTML = LINKS.map((l) => {
       const soon = !l.url;
-      return `<a class="link reveal ${soon ? "is-soon" : ""}" ${soon ? "" : `href="${l.url}" target="_blank" rel="noopener"`}>
+      return `<a class="link reveal-item ${soon ? "is-soon" : ""}" ${soon ? "" : `href="${l.url}" target="_blank" rel="noopener"`}>
         <span class="link__icon">${ICONS[l.id] || ""}</span>
         <span><strong>${l.name}</strong><small>${soon ? t("links.soon") : l.handle}</small></span>
         ${l.copy ? `<button class="link__copy mono" type="button" data-copy="${l.copy}">${t("links.copy")}</button>` : `<span class="link__arrow">↗</span>`}
@@ -273,10 +282,33 @@
   $$("[data-topic]").forEach((s) => topicObs.observe(s));
 
   /* ---------- Revelar ao rolar ---------- */
-  const revealObs = new IntersectionObserver((entries) => {
-    entries.forEach((en) => { if (en.isIntersecting) { en.target.classList.add("is-in"); revealObs.unobserve(en.target); } });
-  }, { threshold: .12 });
-  function observeReveal() { $$(".reveal:not(.is-in)").forEach((el) => revealObs.observe(el)); }
+  // Tudo entra ao rolar: blocos sobem com fade; cards "abrem" a imagem; stacks e links surgem um a um.
+  const MOTION = !matchMedia("(prefers-reduced-motion: reduce)").matches && "IntersectionObserver" in window;
+  if (MOTION) document.documentElement.classList.add("js-motion");
+  const STAGGER = { stackGrid: 150, linksGrid: 90 };
+  const revealObs = MOTION ? new IntersectionObserver((entries) => {
+    entries.forEach((en) => {
+      if (!en.isIntersecting) return;
+      const el = en.target;
+      revealObs.unobserve(el);
+      const step = STAGGER[el.id];
+      if (step != null) {
+        [...el.querySelectorAll(":scope > .reveal-item:not(.is-in)")].forEach((c, i) => { c.style.setProperty("--d", i * step + "ms"); c.classList.add("is-in"); });
+      } else el.classList.add("is-in");
+    });
+  }, { threshold: .12, rootMargin: "0px 0px -6% 0px" }) : null;
+  let instant = false;
+  function observeReveal() {
+    const items = $$(".reveal:not(.is-in), .reveal-card:not(.is-in)");
+    const groups = Object.keys(STAGGER).map((id) => document.getElementById(id)).filter((g) => g && g.querySelector(".reveal-item:not(.is-in)"));
+    if (!MOTION || instant) {                          // sem animação (acessibilidade) ou re-render ao trocar idioma
+      items.forEach((el) => el.classList.add("is-in", "no-anim"));
+      groups.forEach((g) => g.querySelectorAll(".reveal-item").forEach((c) => c.classList.add("is-in", "no-anim")));
+      return;
+    }
+    items.forEach((el) => revealObs.observe(el));
+    groups.forEach((g) => revealObs.observe(g));
+  }
   $$(".section__head, .about").forEach((el) => el.classList.add("reveal"));
 
   /* ---------- Currículo (menu PT/EN) ---------- */

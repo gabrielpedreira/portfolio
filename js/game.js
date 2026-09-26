@@ -37,7 +37,8 @@
     bug:      { src: "inseto_voando.png",       fps: 12, loop: true },
     heli:     { src: "helicoptero.png",         fps: 16, loop: true }
   };
-  const IMGS = { bg: "cenario.webp", front: "cenario_frente.webp", gun: "pistola_hud.png", bullet: "municao_hud.png" };
+  const IMGS = { bg: "cenario.webp", front: "cenario_frente.webp", gun: "pistola_hud.png", gunEmpty: "pistola_descarregada_hud.png", bullet: "municao_hud.png",
+    faceOk: "rosto_bem.png", faceCaution: "rosto_caution.png", faceDanger: "rosto_danger.png" };
 
   const TXT = {
     pt: { kills: "ZUMBIS", restart: "Recomeçar", loading: "Carregando…", close: "Fechar jogo",
@@ -695,26 +696,37 @@
     ctx.fillText(label, 26, 21);
     for (let i = 0; i < skulls; i++) skull(26 + tw + 10 + i * 26, 19);
 
-    // vida: 9 quadradinhos vermelhos (canto superior direito)
+    // vida (canto superior direito): 9 blocos — verde, amarelo a partir de 6, vermelho a partir de 3 —
+    // e o rosto da Lorena à direita da barra (bem / caution / danger)
+    const life = L.life;
+    const tier = life > 6 ? 0 : life > 3 ? 1 : 2;
+    const COL = [["#3fbf4a", "#8af07f", "rgba(63,191,74,.45)"], ["#e3b21f", "#ffe07a", "rgba(227,178,31,.45)"], ["#d42a2a", "#ff6a5a", "rgba(212,42,42,.5)"]][tier];
+    const face = [IMGS.faceOk, IMGS.faceCaution, IMGS.faceDanger][tier];
+    const fw = 60, fh = face ? Math.round(fw * face.height / face.width) : 47;
     const sq = 16, gap = 5, n = MAX_LIFE;
-    const lx = W - 18 - n * sq - (n - 1) * gap;
+    const barW = n * sq + (n - 1) * gap;
+    const panelH = fh + 8, py = 12;
+    const fx = W - 18 - fw, lx = fx - 12 - barW;
     ctx.fillStyle = "rgba(0,0,0,.55)";
-    ctx.fillRect(lx - 8, 14, n * sq + (n - 1) * gap + 16, sq + 16);
+    ctx.fillRect(lx - 10, py, barW + 12 + fw + 18, panelH);
+    const y = py + (panelH - sq) / 2;
     for (let i = 0; i < n; i++) {
-      const x = lx + i * (sq + gap), y = 22;
-      if (i < L.life) { ctx.fillStyle = "#d42a2a"; ctx.fillRect(x, y, sq, sq); ctx.fillStyle = "#ff6a5a"; ctx.fillRect(x, y, sq, 3); }
-      else { ctx.strokeStyle = "rgba(212,42,42,.5)"; ctx.lineWidth = 2; ctx.strokeRect(x + 1, y + 1, sq - 2, sq - 2); }
+      const x = lx + i * (sq + gap);
+      if (i < life) { ctx.fillStyle = COL[0]; ctx.fillRect(x, y, sq, sq); ctx.fillStyle = COL[1]; ctx.fillRect(x, y, sq, 3); }
+      else { ctx.strokeStyle = COL[2]; ctx.lineWidth = 2; ctx.strokeRect(x + 1, y + 1, sq - 2, sq - 2); }
     }
+    if (face) { ctx.imageSmoothingEnabled = false; ctx.drawImage(face, fx, py + 4, fw, fh); }
 
-    // arma + munição (lado direito)
-    const gun = IMGS.gun, bul = IMGS.bullet;
+    // arma + munição (lado direito); sem balas mostra a pistola descarregada (ferrolho aberto)
+    const gun = L.ammo > 0 ? IMGS.gun : (IMGS.gunEmpty || IMGS.gun), bul = IMGS.bullet;
+    const gunK = 100 / 220;                                  // mesma escala para as duas imagens da pistola
     const bw = 8, bh = 26, bg = 4;
     const ammoW = MAX_AMMO * bw + (MAX_AMMO - 1) * bg;
-    const gy = 60;
+    const gy = py + panelH + 10;
     ctx.imageSmoothingEnabled = true;
     ctx.fillStyle = "rgba(0,0,0,.55)";
     ctx.fillRect(W - 18 - 100 - 14 - ammoW - 8, gy - 6, 100 + 14 + ammoW + 16, 64);
-    if (gun) ctx.drawImage(gun, W - 18 - ammoW - 14 - 100, gy + 2, 100, 100 * gun.height / gun.width);
+    if (gun) ctx.drawImage(gun, W - 18 - ammoW - 14 - 100, gy + 2, gun.width * gunK, gun.height * gunK);
     for (let i = 0; i < MAX_AMMO; i++) {
       const x = W - 18 - ammoW + i * (bw + bg), y = gy + 13;
       if (i < L.ammo) { if (bul) ctx.drawImage(bul, x, y, bw, bh); }

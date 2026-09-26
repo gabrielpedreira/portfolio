@@ -67,7 +67,7 @@ window.CATEGORIES = [
   { id: "esculturas", bg: "assets/img/fundos/esculturas.webp", cover: "assets/works/esculturas/arakne_by_gbdracco2_thumb.webp",
     label: { pt: "Esculturas", en: "Sculptures" },
     blurb: { pt: "Peças originais e fan arts esculpidas.", en: "Original pieces and sculpted fan art." } },
-  { id: "animacoes", bg: "assets/img/fundos/animacoes.webp", cover: "assets/works/animacoes/lorena_tiropistola.gif", fit: "contain", pixel: true,
+  { id: "animacoes", bg: "assets/img/fundos/animacoes_v2.webp", cover: "assets/works/animacoes/lorena_tiropistola.gif", fit: "contain", pixel: true,
     label: { pt: "Animações", en: "Animations" },
     blurb: { pt: "Animação frame a frame em pixel art.", en: "Frame-by-frame pixel art animation." } },
   { id: "ilustracoes", label: { pt: "Ilustrações", en: "Illustrations" } }

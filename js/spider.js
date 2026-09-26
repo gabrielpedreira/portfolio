@@ -37,7 +37,8 @@
     startDelay: 5000,     // ms até ela aparecer
     viewY: 0.28,          // altura de parada na tela (fração da janela, posição da fiandeira)
     entrySpeed: 110,      // px/s — primeira descida (lenta)
-    followSpeed: 420,     // px/s — acompanhando a rolagem
+    followSpeed: 1500,    // px/s — acompanhando a rolagem (rápida depois que começa)
+    followDelay: 380,     // ms de espera depois que a tela rola, antes de começar a se mover
     moveThreshold: 6,     // px de diferença para voltar a se mover (rolagem lenta já ativa a descida)
     bodyMax: 110,         // largura máxima do corpo na tela (px)
     bodyMin: 46,
@@ -165,6 +166,7 @@
   let scale = 0.5, dpr = 1, gutter = 16, viewW = innerWidth;
   let mode = "hidden";   // teia: moving|stopping|idle|pointing   chão: falling|angry|calm|turning|walking|gone
   let pos = 0, vel = 0, peakSpeed = 0;  // fiandeira (y no DOCUMENTO) enquanto na teia
+  let followWait = 0;                   // ms esperando antes de seguir a rolagem
   let gx = 0, gy = 0;                   // chão: x do centro do quadro (tela) e y dos pés (documento)
   let fallV = 0, cut = null, timer = 0;
   let wx = 0, wy = 0, rot = 0, path = [], side = Math.random() < .5 ? "left" : "right"; // parede
@@ -356,15 +358,19 @@
       const t = target();
       let d = t - pos;
       if (Math.abs(d) > innerHeight * 1.1) { pos = t - Math.sign(d) * innerHeight * 0.75; vel = 0; d = t - pos; }
-      if ((mode === "idle" || mode === "stopping" || mode === "pointing") && Math.abs(d) > CONFIG.moveThreshold) setMode("moving");
+      // rolou: espera um instante (delay) e só então sai correndo pelo fio
+      if ((mode === "idle" || mode === "stopping" || mode === "pointing") && Math.abs(d) > CONFIG.moveThreshold) {
+        followWait += dt * 1000;
+        if (followWait >= CONFIG.followDelay) { followWait = 0; setMode("moving"); }
+      } else if (mode !== "moving") followWait = 0;
       if (mode === "idle" && variant === "normal" && besideClickable()) setMode("pointing");
       else if (mode === "pointing" && !besideClickable()) setMode("idle");
 
       if (mode === "moving") {
         const max = firstTrip ? CONFIG.entrySpeed : CONFIG.followSpeed;
-        const pulse = reduced ? 1 : 0.45 + 0.55 * Math.abs(Math.sin(clock * 3.2)); // pausinhas no fio
-        const desired = Math.max(-max, Math.min(max, d * 2.2)) * pulse;
-        vel += (desired - vel) * Math.min(1, dt * 5);
+        const pulse = reduced || !firstTrip ? 1 : 0.45 + 0.55 * Math.abs(Math.sin(clock * 3.2)); // pausinhas só na 1ª descida
+        const desired = Math.max(-max, Math.min(max, d * (firstTrip ? 2.2 : 6))) * pulse;
+        vel += (desired - vel) * Math.min(1, dt * (firstTrip ? 5 : 12));
         pos += vel * dt;
         peakSpeed = Math.max(peakSpeed, Math.abs(vel));
         const scrolling = performance.now() - lastScroll < 220;   // não "para" enquanto a tela ainda rola

@@ -37,7 +37,7 @@
     startDelay: 5000,     // ms até ela aparecer
     viewY: 0.28,          // altura de parada na tela (fração da janela, posição da fiandeira)
     entrySpeed: 110,      // px/s — primeira descida (lenta)
-    followSpeed: 1500,    // px/s — acompanhando a rolagem (rápida depois que começa)
+    followSpeed: 1150,    // px/s — acompanhando a rolagem (rápida depois que começa)
     followDelay: 380,     // ms de espera depois que a tela rola, antes de começar a se mover
     moveThreshold: 6,     // px de diferença para voltar a se mover (rolagem lenta já ativa a descida)
     bodyMax: 110,         // largura máxima do corpo na tela (px)
@@ -47,7 +47,7 @@
     calmTime: 5000,       // ms em pé, calma, antes de ir embora
     runSpeed: 950,        // px/s correndo no chão (andando_perfil)
     returnAfter: 7000,    // ms depois de sumir para voltar pela parede
-    wallSpeed: 230,       // px/s andando na parede
+    wallSpeed: 310,       // px/s andando na parede
     // escala de cada animação em relação à teia (ajuste fino visual)
     size: { brava: 0.68, empe: 0.68, virada: 0.68, andando: 0.5, cima: 1.0, parede: 1.05, wppteia: 0.82 },
     wppAfter: 120000,     // ms pendurada sem interação até buscar o WhatsApp (2 min)
@@ -77,7 +77,7 @@
     empe:           { src: S + "empe_frente_idle.png",  frames: 4,  fps: 6,  loop: true },
     virada:         { src: S + "virada_lateral.png",    frames: 3,  fps: 8,  loop: false },
     andando:        { src: S + "andando_perfil.png",    frames: 16, fps: 50, loop: true },
-    cima:           { src: S + "andando_cima.png",      frames: 10, fps: 16, loop: true },
+    cima:           { src: S + "andando_cima.png",      frames: 10, fps: 21, loop: true },
     parede:         { src: S + "idle_parede.png",       frames: 16, fps: 10, loop: true },
     disparo:        { src: S + "disparando_teia.png",   frames: 4,  fps: 6,  loop: true },
     puxando:        { src: S + "puxando_teia.png",      frames: 6,  fps: 8,  loop: true },
@@ -369,7 +369,7 @@
       if (mode === "moving") {
         const max = firstTrip ? CONFIG.entrySpeed : CONFIG.followSpeed;
         const pulse = reduced || !firstTrip ? 1 : 0.45 + 0.55 * Math.abs(Math.sin(clock * 3.2)); // pausinhas só na 1ª descida
-        const desired = Math.max(-max, Math.min(max, d * (firstTrip ? 2.2 : 6))) * pulse;
+        const desired = Math.max(-max, Math.min(max, d * (firstTrip ? 2.2 : 4.8))) * pulse;
         vel += (desired - vel) * Math.min(1, dt * (firstTrip ? 5 : 12));
         pos += vel * dt;
         peakSpeed = Math.max(peakSpeed, Math.abs(vel));

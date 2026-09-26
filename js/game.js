@@ -813,15 +813,64 @@
     if (!document.hidden) { last = performance.now(); if (running) A.resume(); } else A.suspend();
   });
 
-  // qualquer elemento com data-play abre o jogo
+  /* ---------- placa de aviso antes do jogo ---------- */
+  let warn = null, warnFrom = null;
+  function buildWarn() {
+    if (warn) return;
+    warn = document.createElement("div");
+    warn.className = "gwarn";
+    warn.hidden = true;
+    warn.innerHTML = `
+      <div class="gwarn__backdrop"></div>
+      <div class="gwarn__box" role="dialog" aria-modal="true" aria-label="Infestação — minigame">
+        <img class="gwarn__img" src="assets/game/placa_aviso.webp" width="1600" height="854"
+          alt="Este é um pequeno minigame desenvolvido para apresentar um dos inimigos do jogo e demonstrar algumas de suas mecânicas e animações. A versão final contará com muito mais elementos. Por enquanto, seu único objetivo é sobreviver. Você consegue chegar a 25 zumbis abatidos?">
+        <button type="button" class="gwarn__ok"><img src="assets/game/aceitar.png" alt="Aceitar" width="560" height="224"></button>
+        <button type="button" class="gwarn__x" aria-label="Fechar">×</button>
+      </div>`;
+    document.body.appendChild(warn);
+    warn.querySelector(".gwarn__ok").addEventListener("click", acceptWarn);
+    warn.querySelector(".gwarn__x").addEventListener("click", closeWarn);
+    warn.querySelector(".gwarn__backdrop").addEventListener("click", closeWarn);
+    warn.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") { e.preventDefault(); closeWarn(); }
+    });
+  }
+  function showWarn(from) {
+    buildWarn();
+    warnFrom = from || null;
+    warn.hidden = false;
+    document.documentElement.classList.add("game-open");
+    warn.querySelector(".gwarn__box").animate(
+      [{ transform: "scale(.85)", opacity: 0 }, { transform: "none", opacity: 1 }],
+      { duration: 260, easing: "cubic-bezier(.2,.8,.2,1)" });
+    if (!TOUCH()) warn.querySelector(".gwarn__ok").focus({ preventScroll: true });
+    load();                                                  // já vai carregando o jogo enquanto a pessoa lê
+  }
+  function hideWarn() {
+    if (!warn) return;
+    warn.hidden = true;
+  }
+  function closeWarn() {
+    hideWarn();
+    document.documentElement.classList.remove("game-open");
+    warnFrom?.focus?.({ preventScroll: true });
+  }
+  function acceptWarn() {
+    hideWarn();
+    open(warnFrom);                                          // no mesmo clique: libera tela cheia e áudio
+  }
+
+  // qualquer elemento com data-play mostra a placa; "Aceitar" abre o jogo
   document.addEventListener("click", (e) => {
     const b = e.target.closest("[data-play]");
     if (!b) return;
     e.preventDefault(); e.stopPropagation();
-    open(b);
+    showWarn(b);
   }, true);
 
   window.__jogo = { open, close, get state() { return { L, zombies, kills, over }; },
+    warn: showWarn, accept: acceptWarn,
     setKills(n) { kills = n; },
     bug() { spawnBug(); },
     heli() { spawnHeli(); },

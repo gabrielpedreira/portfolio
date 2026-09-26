@@ -835,7 +835,7 @@
     warn.innerHTML = `
       <div class="gwarn__backdrop"></div>
       <div class="gwarn__box" role="dialog" aria-modal="true" aria-label="Infestação — minigame">
-        <img class="gwarn__img" src="assets/game/placa_aviso.webp" width="1600" height="854" alt="">
+        <img class="gwarn__img" src="assets/game/placa_aviso_v2.webp" width="1600" height="854" alt="">
         <div class="gwarn__text">
           <p class="gwarn__top" data-w="p1"></p>
           <div class="gwarn__bottom">

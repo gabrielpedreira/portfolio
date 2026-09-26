@@ -109,7 +109,7 @@
   if (bgArt) {
     const pre = new Image();
     pre.onload = () => requestAnimationFrame(() => bgArt.classList.add("is-in"));
-    pre.src = "assets/img/fundos/inicial.webp";
+    pre.src = "assets/img/fundos/inicial_v2.webp";
     // a arte cobre a página inicial inteira (do topo ao rodapé); com uma categoria aberta ela não reescala
     const fitBg = () => {
       if (activeFilter) return;

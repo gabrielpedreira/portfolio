@@ -835,8 +835,15 @@
     warn.innerHTML = `
       <div class="gwarn__backdrop"></div>
       <div class="gwarn__box" role="dialog" aria-modal="true" aria-label="Infestação — minigame">
-        <img class="gwarn__img" src="assets/game/placa_aviso.webp" width="1600" height="854"
-          alt="Este é um pequeno minigame desenvolvido para apresentar um dos inimigos do jogo e demonstrar algumas de suas mecânicas e animações. A versão final contará com muito mais elementos. Por enquanto, seu único objetivo é sobreviver. Você consegue chegar a 25 zumbis abatidos?">
+        <img class="gwarn__img" src="assets/game/placa_aviso.webp" width="1600" height="854" alt="">
+        <div class="gwarn__text">
+          <p class="gwarn__top" data-w="p1"></p>
+          <div class="gwarn__bottom">
+            <p data-w="p2"></p>
+            <p class="gwarn__gold" data-w="p3"></p>
+            <p data-w="p4"></p>
+          </div>
+        </div>
         <button type="button" class="gwarn__ok"><img src="assets/game/aceitar.png" alt="Aceitar" width="560" height="224"></button>
         <button type="button" class="gwarn__x" aria-label="Fechar">×</button>
       </div>`;
@@ -848,8 +855,27 @@
       if (e.key === "Escape") { e.preventDefault(); closeWarn(); }
     });
   }
+  const WARN_TXT = {
+    pt: {
+      p1: "Este é um pequeno minigame desenvolvido para apresentar um dos inimigos do jogo, além de demonstrar algumas de suas mecânicas e animações.",
+      p2: "A versão final contará com muito mais elementos: diferentes inimigos, ações, mecânicas e interações com o cenário. Este minigame é apenas uma pequena amostra do que está por vir.",
+      p3: "Por enquanto, seu único objetivo é sobreviver.<br>Você consegue chegar a 25 zumbis abatidos?",
+      p4: "Então aceite o desafio e veja até onde consegue chegar!",
+      ok: "Aceitar"
+    },
+    en: {
+      p1: "This is a small minigame made to introduce one of the game's enemies and to show off some of its mechanics and animations.",
+      p2: "The final version will have much more: different enemies, actions, mechanics and interactions with the environment. This minigame is just a small taste of what's coming.",
+      p3: "For now, your only goal is to survive.<br>Can you reach 25 zombies killed?",
+      p4: "Then accept the challenge and see how far you can go!",
+      ok: "Accept"
+    }
+  };
   function showWarn(from) {
     buildWarn();
+    const w = WARN_TXT[lang()];
+    warn.querySelectorAll("[data-w]").forEach((el) => (el.innerHTML = w[el.dataset.w]));
+    warn.querySelector(".gwarn__ok img").alt = w.ok;
     warnFrom = from || null;
     warn.hidden = false;
     document.documentElement.classList.add("game-open");

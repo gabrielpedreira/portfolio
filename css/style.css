@@ -517,3 +517,13 @@ html.game-open { overflow: hidden; }
 .gwarn__x { position: absolute; top: 2%; right: 2.4%; width: clamp(30px, 4.2%, 42px); aspect-ratio: 1; border-radius: 50%; border: 2px solid rgba(255,255,255,.35);
   background: rgba(10,10,14,.75); color: #eee; font-size: clamp(1rem, 2vw, 1.4rem); line-height: 1; cursor: pointer; display: grid; place-items: center; transition: background .15s, border-color .15s, transform .15s; }
 .gwarn__x:hover, .gwarn__x:focus-visible { background: #8e1b1b; border-color: #ff5a4a; transform: scale(1.08); outline: none; }
+/* texto da placa (sobre a arte sem texto) */
+.gwarn__box { container-type: inline-size; }
+.gwarn__text { position: absolute; left: 12%; right: 12%; top: 16.5%; bottom: 28%; pointer-events: none;
+  font-family: "Signika", "Space Grotesk", system-ui, sans-serif; font-weight: 500; text-align: center; color: #ece5d8;
+  font-size: 2.15cqw; line-height: 1.22; font-kerning: normal;
+  text-shadow: 0 .12cqw 0 #1b1718, 0 0 .5cqw rgba(0,0,0,.55); }
+.gwarn__text p { margin: 0; }
+.gwarn__top { position: absolute; left: 0; right: 0; top: 0; height: 30%; display: grid; place-content: center; }
+.gwarn__bottom { position: absolute; left: 0; right: 0; top: 38%; bottom: 0; display: flex; flex-direction: column; justify-content: center; gap: .9cqw; }
+.gwarn__gold { color: #dcc38f; font-weight: 600; font-size: 1.16em; line-height: 1.25; }

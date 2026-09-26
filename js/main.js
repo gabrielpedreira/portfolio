@@ -104,24 +104,33 @@
   artLayer.setAttribute("aria-hidden", "true");
   document.body.prepend(artLayer);
   let artInView = true;
-  // fundo ilustrado da página: surge devagar quando a imagem termina de carregar
-  const bgArt = $("#bgArt");
-  if (bgArt) {
-    const pre = new Image();
-    pre.onload = () => requestAnimationFrame(() => bgArt.classList.add("is-in"));
-    pre.src = "assets/img/fundos/inicial_v2.webp";
-    // a arte cobre a página inicial inteira (do topo ao rodapé); com uma categoria aberta ela não reescala
-    const fitBg = () => {
-      if (activeFilter) return;
-      bgArt.style.height = "0px";
-      bgArt.style.height = document.documentElement.scrollHeight + "px";
-    };
-    addEventListener("load", fitBg);
-    addEventListener("resize", () => { clearTimeout(fitBg.t); fitBg.t = setTimeout(fitBg, 150); });
-    setTimeout(fitBg, 50);
-  }
+  // página inicial: uma arte por seção, cada uma surge de um lado ao rolar até ela
+  const HOME_ART = [
+    { sec: "#inicio",     src: "assets/img/fundos/inicio.webp",      side: "right", top: "4%",  w: "min(56vw, 900px)" },
+    { sec: "#sobre",      src: "assets/img/fundos/esculturas.webp",  side: "left",  top: "0",   w: "min(52vw, 820px)" },
+    { sec: "#stack",      src: "assets/img/fundos/conceptarts.webp", side: "right", top: "-6%", w: "min(40vw, 620px)" },
+    { sec: "#trabalhos",  src: "assets/img/fundos/jogos.webp",       side: "left",  top: "2%",  w: "min(40vw, 620px)", work: true },
+    { sec: "#trabalhos",  src: "assets/img/fundos/animacoes_v2.webp", side: "right", top: "48%", w: "min(40vw, 620px)", work: true }
+  ];
+  const homeArts = [];
+  const homeArtObs = "IntersectionObserver" in window ? new IntersectionObserver((entries) => {
+    entries.forEach((en) => { if (en.isIntersecting) { en.target.classList.add("is-in"); homeArtObs.unobserve(en.target); } });
+  }, { threshold: .08, rootMargin: "0px 0px -12% 0px" }) : null;
+  HOME_ART.forEach((a) => {
+    const sec = $(a.sec); if (!sec) return;
+    const img = new Image();
+    img.className = `sec-art sec-art--${a.side}`; img.alt = ""; img.decoding = "async"; img.loading = "lazy";
+    img.setAttribute("aria-hidden", "true");
+    img.style.top = a.top; img.style.width = a.w;
+    img.src = a.src;
+    if (a.work) img.dataset.work = "1";
+    sec.prepend(img);
+    homeArts.push(img);
+    if (homeArtObs) homeArtObs.observe(img); else img.classList.add("is-in");
+  });
   function setTopicArt(id) {
-    bgArt?.classList.toggle("is-dim", !!id);          // com uma categoria aberta, o fundo geral recua
+    // com uma categoria aberta, as artes da página inicial em Trabalhos dão lugar à arte da categoria
+    homeArts.forEach((img) => img.dataset.work && img.classList.toggle("is-away", !!id));
     const c = CATEGORIES.find((c) => c.id === id);
     const src = c?.bg || null;
     const cur = artLayer.querySelector(".topic-art__img:not(.is-out)");

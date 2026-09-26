@@ -367,10 +367,12 @@
       else if (mode === "pointing" && !besideClickable()) setMode("idle");
 
       if (mode === "moving") {
-        const max = firstTrip ? CONFIG.entrySpeed : CONFIG.followSpeed;
-        const pulse = reduced || !firstTrip ? 1 : 0.45 + 0.55 * Math.abs(Math.sin(clock * 3.2)); // pausinhas só na 1ª descida
-        const desired = Math.max(-max, Math.min(max, d * (firstTrip ? 2.2 : 4.8))) * pulse;
-        vel += (desired - vel) * Math.min(1, dt * (firstTrip ? 5 : 12));
+        // descida lenta com pausinhas só na chegada normal; segurando/trazendo o símbolo usa a mesma velocidade da teia
+        const slow = firstTrip && variant === "normal";
+        const max = slow ? CONFIG.entrySpeed : CONFIG.followSpeed;
+        const pulse = reduced || !slow ? 1 : 0.45 + 0.55 * Math.abs(Math.sin(clock * 3.2));
+        const desired = Math.max(-max, Math.min(max, d * (slow ? 2.2 : 4.8))) * pulse;
+        vel += (desired - vel) * Math.min(1, dt * (slow ? 5 : 12));
         pos += vel * dt;
         peakSpeed = Math.max(peakSpeed, Math.abs(vel));
         const scrolling = performance.now() - lastScroll < 220;   // não "para" enquanto a tela ainda rola

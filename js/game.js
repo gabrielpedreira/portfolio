@@ -144,8 +144,9 @@
     play(k, { seg, gain = 1, pan = 0, gap = 0 } = {}) {
       const b = this.buf[k]; if (!b || !this.ctx) return;
       const now = this.ctx.currentTime;
-      if (gap && now - (this.last[k] || -9) < gap) return;
-      this.last[k] = now;
+      const cacheKey = seg ? `${k}:${seg[0]}:${seg[1]}` : k;
+      if (gap && now - (this.last[cacheKey] || -9) < gap) return;
+      this.last[cacheKey] = now;
       this.count[k] = (this.count[k] || 0) + 1;
       const src = this.ctx.createBufferSource(); src.buffer = b;
       const g = this.ctx.createGain(); g.gain.value = (MIX[k] ?? 1) * gain;

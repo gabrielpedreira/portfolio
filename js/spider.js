@@ -409,12 +409,14 @@
 
     if (mode === "wallWalk" || mode === "wallIdle") {
       wallAcc += dt * 1000;
-      if (!exiting && wallAcc >= CONFIG.wallWppAfter && sym.state === "floor") exitWall();
+      if (!exiting && !steal && wallAcc >= CONFIG.wallWppAfter && sym.state === "floor") exitWall();
+      maybeSteal(dt);
+      updateSteal(dt);
     }
     if (mode === "wallWalk") { walkPath(dt); return; }
     if (mode === "wallIdle") {
       const sy = window.scrollY, m = 40;
-      if (wy < sy - m || wy > sy + innerHeight + m) enterView();   // sumiu da tela → vem andando
+      if (!steal && (wy < sy - m || wy > sy + innerHeight + m)) enterView();   // sumiu da tela → vem andando
       return;
     }
 
@@ -473,7 +475,7 @@
 
   // mouse em cima: foge para um lado aleatório, sem sair da tela
   function flee() {
-    if (exiting) return;
+    if (exiting || steal) return;
     const sy = window.scrollY, h = halfBody();
     for (let i = 0; i < 12; i++) {
       const a = rnd(0, Math.PI * 2), d = rnd(160, 320);
@@ -489,7 +491,10 @@
       if (exiting) {                              // saiu da tela → volta descendo pela teia e dispara
         exiting = false; variant = "normal"; pendingShoot = true; idleAcc = 0;
         respawn();
-      } else setMode("wallIdle");
+      } else {
+        setMode("wallIdle");
+        if (steal && steal.arrive) { const f = steal.arrive; steal.arrive = null; f(); }   // chegou num ponto do "roubo"
+      }
       return;
     }
     const dx = p.x - wx, dy = p.y - wy, d = Math.hypot(dx, dy);
@@ -506,6 +511,211 @@
     if (!bounceA || bounceT > 2) return 0;
     return bounceA * Math.exp(-4.5 * bounceT) * Math.sin(bounceT * 12);
   }
+
+  /* ---------- Na parede: "rouba" botões de contato e os pendura na teia ---------- */
+  // Enquanto anda na parede, de vez em quando ela desce até os botões de Links & contato,
+  // aponta a fiandeira, dispara a teia, arrasta o botão até um ponto aleatório da tela e o
+  // deixa pendurado balançando. Os botões continuam clicáveis; se a teia for cortada (com a
+  // tesoura) o botão cai, quica para o lado mais perto e, ao sumir da tela, volta ao lugar.
+  const STEAL = { first: [12000, 26000], every: [16000, 40000], chance: 0.75, rope: 150, g: 1400, shootSpeed: 950 };
+  if (params.has("roubo")) STEAL.first = STEAL.every = [Number(params.get("roubo")) * 1000 || 3000, Number(params.get("roubo")) * 1000 || 3000];
+  const TEIA_IMG = "assets/img/teia.webp";
+  const stealLayer = document.createElement("div");
+  stealLayer.className = "spider-steal";
+  stealLayer.setAttribute("aria-hidden", "false");
+  document.body.append(stealLayer);
+  const shootLine = document.createElement("div");
+  shootLine.className = "steal-line"; shootLine.hidden = true;
+  stealLayer.append(shootLine);
+  let steal = null, stealWait = rnd(...STEAL.first);
+  const hung = [];
+  const contactLinks = () => [...document.querySelectorAll("#linksGrid .link")];
+
+  function setLine(el, x1, y1, x2, y2) {
+    const dx = x2 - x1, dy = y2 - y1, len = Math.hypot(dx, dy);
+    el.style.transform = `translate(${x1}px, ${y1}px) rotate(${Math.atan2(-dx, dy)}rad)`;
+    el.style.height = len + "px";
+  }
+  // ponta do abdômen (fiandeira) da aranha na parede, em coordenadas do documento
+  function spinneret() {
+    const k = CONFIG.size[anim] || 1, d = (anim === "cima" ? 200 : 168) * scale * k;
+    const r = mode === "wallWalk" || steal ? rot : 0;
+    return { x: wx - Math.sin(r) * d, y: wy + Math.cos(r) * d };
+  }
+  const docY = (el) => el.getBoundingClientRect().top + window.scrollY;
+  const inView = (y, m = 80) => y > window.scrollY - m && y < window.scrollY + innerHeight + m;
+
+  function maybeSteal(dt) {
+    if (steal || exiting || mode !== "wallIdle") return;
+    const sy = window.scrollY;
+    if (wy < sy || wy > sy + innerHeight) return;                     // só quando ela está à vista
+    stealWait -= dt * 1000;
+    if (stealWait > 0) return;
+    stealWait = rnd(...STEAL.every);
+    if (Math.random() > STEAL.chance) return;                         // às vezes só continua te seguindo
+    const free = contactLinks().filter((l) => !l.dataset.stolen && l.offsetParent);
+    if (free.length) startSteal(free[(Math.random() * free.length) | 0]);
+  }
+
+  function startSteal(link) {
+    const r = link.getBoundingClientRect();
+    const bx = r.left + r.width / 2, by = r.top + window.scrollY;
+    steal = { link, phase: "go", t: 0, bx, by };
+    goTo(clampX(bx + rnd(-60, 60)), by - rnd(140, 200));
+    steal.arrive = aimAtLink;
+  }
+  function aimAtLink() {
+    const r = steal.link.getBoundingClientRect();
+    steal.bx = r.left + r.width / 2; steal.by = r.top + window.scrollY;     // o layout pode ter mudado
+    steal.phase = "aim"; steal.t = 0;
+  }
+
+  function updateSteal(dt) {
+    if (!steal) return;
+    steal.t += dt;
+    if (steal.phase === "aim") {                                       // vira a fiandeira para o botão
+      const want = Math.atan2(wx - steal.bx, -(wy - steal.by));
+      const diff = ((want - rot + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
+      rot += diff * Math.min(1, dt * 7);
+      if (steal.t > 0.55) { steal.phase = "shoot"; steal.t = 0; const s = spinneret(); steal.dur = Math.max(0.3, Math.hypot(steal.bx - s.x, steal.by - s.y) / STEAL.shootSpeed); }
+    } else if (steal.phase === "shoot") {                              // o fio vai até o botão
+      const s = spinneret(), k = Math.min(1, steal.t / steal.dur);
+      shootLine.hidden = false;
+      setLine(shootLine, s.x, s.y, s.x + (steal.bx - s.x) * k, s.y + (steal.by - s.y) * k);
+      if (k >= 1) { shootLine.hidden = true; steal.item = grab(steal.link, s); steal.phase = "stick"; steal.t = 0; }
+    } else if (steal.phase === "stick" && steal.t > 0.4) {             // grudou → arrasta para um ponto aleatório da tela
+      steal.phase = "carry";
+      // ponto aleatório da tela, longe dos botões que já estão pendurados
+      const sy = window.scrollY, h = halfBody();
+      let dx = rnd(h, viewW - h), dy = sy + innerHeight * rnd(0.12, 0.42);
+      for (let i = 0; i < 16; i++) {
+        const x = rnd(h, viewW - h), y = sy + innerHeight * rnd(0.12, 0.42);
+        if (hung.every((o) => o === steal.item || o.state !== "hang" || Math.abs(o.ax - x) > (o.w + steal.item.w) / 2 + 30 || Math.abs(o.ay - y) > 260)) { dx = x; dy = y; break; }
+      }
+      goTo(dx, dy);
+      steal.arrive = () => { steal.phase = "attach"; steal.t = 0; };
+    } else if (steal.phase === "attach" && steal.t > 0.35) {           // prende a teia na parede e solta
+      const it = steal.item;
+      if (it && it.state === "carry") { const s = spinneret(); it.ax = s.x; it.ay = s.y; it.state = "hang"; it.anchor.hidden = false; }
+      steal = null;
+      walkAway();
+    }
+    // atalho fora da tela: longe e sem ninguém vendo, ela "pula" o caminho longo
+    if (steal && (steal.phase === "go" || steal.phase === "carry") && path.length) {
+      const f = path[path.length - 1];
+      if (!inView(wy)) {
+        if (!inView(f.y)) { wx = f.x; wy = f.y; path = [f]; }
+        else {
+          const edge = f.y < wy ? window.scrollY + innerHeight + 70 : window.scrollY - 70;
+          if (Math.abs(wy - edge) > 160) { wy = edge; wx = clampX(wx); path = makePath(wx, wy, f.x, f.y); if (steal.item) resetSwing(steal.item); }
+        }
+      }
+    }
+  }
+  function walkAway() {
+    const sy = window.scrollY, h = halfBody();
+    for (let i = 0; i < 14; i++) {
+      const a = rnd(Math.PI * 1.05, Math.PI * 1.95), d = rnd(190, 320);    // para cima e para o lado, longe do botão
+      const x = wx + Math.cos(a) * d, y = wy + Math.sin(a) * d;
+      if (x > h && x < viewW - h && y > sy + h && y < sy + innerHeight - h) return goTo(x, y);
+    }
+    goTo(clampX(viewW - wx), wy);
+  }
+
+  // cria o botão "roubado": uma cópia clicável pendurada por um fio (o original fica invisível no lugar)
+  function grab(link, s) {
+    const r = link.getBoundingClientRect();
+    const w = r.width, h = r.height, bx = r.left + w / 2, by = r.top + window.scrollY;
+    const box = document.createElement("div"); box.className = "steal-item";
+    const anchor = new Image(); anchor.src = TEIA_IMG; anchor.className = "steal-blob steal-blob--anchor"; anchor.alt = ""; anchor.hidden = true;
+    const wrap = document.createElement("div"); wrap.className = "steal-wrap";
+    const line = document.createElement("div"); line.className = "steal-line";
+    const hit = document.createElement("div"); hit.className = "steal-hit";
+    const blob = new Image(); blob.src = TEIA_IMG; blob.className = "steal-blob"; blob.alt = "";
+    const clone = link.cloneNode(true);
+    clone.classList.remove("reveal-item", "is-in", "no-anim");
+    clone.classList.add("link--stolen");
+    clone.style.width = w + "px";
+    clone.removeAttribute("style"); clone.style.width = w + "px";
+    wrap.append(line, clone, blob, hit);
+    box.append(anchor, wrap);
+    stealLayer.append(box);
+    link.style.visibility = "hidden"; link.dataset.stolen = "1";
+    const L = Math.hypot(bx - s.x, by - s.y);
+    const it = { link, idx: contactLinks().indexOf(link), box, anchor, wrap, line, hit, blob, clone, w, h, state: "carry",
+      ax: s.x, ay: s.y, L, th: Math.atan2(-(bx - s.x), by - s.y), om: 0, px: s.x, py: s.y, vx: 0, vy: 0, rot: 0, rotV: 0, t: 0, ph: rnd(0, 6) };
+    hit.style.cursor = scissorsCursor();
+    hit.addEventListener("pointerdown", (e) => { if (!hasScissors()) return; e.preventDefault(); e.stopPropagation(); dropItem(it); });
+    blob.animate([{ transform: "translate(-50%, -58%) scale(.2)", opacity: 0 }, { transform: "translate(-50%, -58%) scale(1)", opacity: 1 }], { duration: 260, easing: "ease-out" });
+    hung.push(it);
+    return it;
+  }
+  function resetSwing(it) { it.om = 0; it.th = 0; }
+
+  function dropItem(it) {
+    if (it.state !== "carry" && it.state !== "hang") return;
+    if (steal && steal.item === it) { steal = null; walkAway(); }     // cortou enquanto ela carregava
+    const tipX = it.ax - Math.sin(it.th) * it.L, tipY = it.ay + Math.cos(it.th) * it.L;   // ponta do fio (topo do botão)
+    it.state = "fall"; it.t = 0;
+    it.side = tipX > viewW / 2 ? 1 : -1;                               // quica para o lado mais perto
+    it.px = tipX; it.py = tipY; it.vx = it.side * rnd(120, 220); it.vy = -80; it.rot = it.th * -1; it.rotV = it.side * 1.4;
+    it.anchor.hidden = true; it.line.hidden = true; it.blob.hidden = true; it.hit.hidden = true;
+  }
+  function restoreItem(it) {
+    it.state = "gone";
+    it.box.remove();
+    const l = contactLinks()[it.idx] || it.link;
+    l.style.visibility = ""; delete l.dataset.stolen;
+    l.animate([{ opacity: 0, transform: "scale(.94)" }, { opacity: 1, transform: "none" }], { duration: 420, easing: "ease-out" });
+    hung.splice(hung.indexOf(it), 1);
+  }
+
+  // física dos botões pendurados (pêndulo amortecido) e das quedas
+  function updateHung(dt) {
+    for (const it of [...hung]) {
+      it.t += dt;
+      if (it.state === "carry" || it.state === "hang") {
+        let ax = it.ax, ay = it.ay;
+        if (it.state === "carry") {
+          const s = spinneret(); ax = s.x; ay = s.y;
+          const acc = ((ax - it.ax) / Math.max(dt, 1e-3) - (it.pvx || 0)) / Math.max(dt, 1e-3);
+          it.pvx = (ax - it.ax) / Math.max(dt, 1e-3);
+          it.om += (Math.cos(it.th) * Math.max(-3000, Math.min(3000, acc)) / it.L) * dt * 0.35;
+          it.L += (STEAL.rope - it.L) * Math.min(1, dt * 2.2);          // recolhe o fio até o tamanho de transporte
+          it.ax = ax; it.ay = ay;
+        }
+        it.om += -(STEAL.g / it.L) * Math.sin(it.th) * dt;
+        it.om *= Math.exp(-(it.state === "hang" ? 2.4 : 1.4) * dt);          // amortece o balanço do transporte
+        it.th = Math.max(-0.6, Math.min(0.6, it.th + it.om * dt));
+        const sway = reduced ? 0 : Math.sin(it.t * 1.35 + it.ph) * 0.045;   // balanço leve e contínuo (~2,5°)
+        it.box.style.transform = `translate(${ax}px, ${ay}px)`;
+        it.wrap.style.transform = `rotate(${it.th + sway}rad)`;
+        it.line.style.height = it.L + "px";
+        it.hit.style.height = Math.max(0, it.L - 10) + "px";
+        it.blob.style.top = it.L + "px";
+        it.clone.style.transform = `translate(${-it.w / 2}px, ${it.L - 8}px)`;
+      } else if (it.state === "fall") {
+        it.vy = Math.min(2600, it.vy + 1900 * dt);
+        it.px += it.vx * dt; it.py += it.vy * dt; it.rot += it.rotV * dt;
+        const fl = floorLine();
+        if (it.vy > 0 && it.py + it.h >= fl) {
+          it.py = fl - it.h;
+          it.vy = Math.abs(it.vy) > 120 ? -Math.abs(it.vy) * 0.38 : 0;
+          it.vx = it.side * Math.max(Math.abs(it.vx), 430); it.rotV = it.side * 2.6;
+        }
+        it.box.style.transform = `translate(${it.px}px, ${it.py}px)`;
+        it.wrap.style.transform = `rotate(${it.rot}rad)`;
+        it.clone.style.transform = `translate(${-it.w / 2}px, 0)`;
+        const sy = window.scrollY, gone = it.py > sy + innerHeight + 30 || it.px + it.w < -20 || it.px - it.w > viewW + 20 || it.t > 10;
+        if (gone) restoreItem(it);
+      }
+    }
+  }
+  document.addEventListener("tesoura", () => hung.forEach((it) => (it.hit.style.cursor = scissorsCursor())));
+  // trocar o idioma recria os botões: mantém escondidos os que estão pendurados
+  document.addEventListener("langchange", () => setTimeout(() => {
+    hung.forEach((it) => { const l = contactLinks()[it.idx]; if (l) { l.style.visibility = "hidden"; l.dataset.stolen = "1"; it.link = l; } });
+  }, 0));
 
   /* ---------- Quadros ---------- */
   function advance(dt) {
@@ -547,7 +757,7 @@
       const k = CONFIG.size[anim] || 1, ref = REF[anim];
       const cx = wall ? wx : gx, cy = (wall ? wy : gy) - sy;
       const squash = wall ? 0 : bounceOffset() * 0.006 + pet * 0.08;
-      const r = mode === "wallWalk" ? rot : 0;
+      const r = mode === "wallWalk" || steal ? rot : 0;
       left = cx - ref.x * scale; top = cy - ref.y * scale;
       canvas.style.transformOrigin = `${ref.x * scale}px ${ref.y * scale}px`;
       canvas.style.transform =
@@ -629,7 +839,10 @@
     setMode("moving");
   }
 
-  window.__aranha = () => ({ mode, anim, frame, variant, sym: sym.state, exiting, pendingShoot, beside: onWeb() && besideClickable() });
+  // depuração: ?parede=… já existe; __aranhaRoubo() força um roubo agora (se estiver na parede)
+  window.__aranhaRoubo = () => { const f = contactLinks().filter((l) => !l.dataset.stolen); if (f.length && (mode === "wallIdle" || mode === "wallWalk") && !steal) startSteal(f[(Math.random() * f.length) | 0]); return !!steal; };
+  window.__aranhaParede = () => { setMode("gone"); timer = 1e9; };
+  window.__aranha = () => ({ steal: steal && steal.phase, hung: hung.map((h) => h.state), mode, anim, frame, variant, sym: sym.state, exiting, pendingShoot, beside: onWeb() && besideClickable() });
 
   /* ---------- Início ---------- */
   Promise.all(Object.entries(SHEETS).map(([k, s]) => load(s.src).then((img) => [k, img])))
@@ -646,7 +859,7 @@
         (function loop(now) {
           const dt = Math.min(0.05, (now - last) / 1000);
           last = now;
-          update(dt); advance(dt); draw();
+          update(dt); updateHung(dt); advance(dt); draw();
           requestAnimationFrame(loop);
         })(last);
       }, delay);

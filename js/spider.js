@@ -557,11 +557,14 @@
     if (free.length) startSteal(free[(Math.random() * free.length) | 0]);
   }
 
+  // a fiandeira (ponta do abdômen) fica a esta distância do centro do corpo no sprite parado da parede
+  const spinDist = () => 168 * scale * CONFIG.size.parede;
   function startSteal(link) {
     const r = link.getBoundingClientRect();
     const bx = r.left + r.width / 2, by = r.top + window.scrollY;
     steal = { link, phase: "go", t: 0, bx, by };
-    goTo(clampX(bx + rnd(-60, 60)), by - rnd(140, 200));
+    // anda até encostar no botão: depois de virar de costas, a fiandeira fica sobre o topo dele
+    goTo(clampX(bx), by - spinDist() - 1);
     steal.arrive = aimAtLink;
   }
   function aimAtLink() {
@@ -573,30 +576,32 @@
   function updateSteal(dt) {
     if (!steal) return;
     steal.t += dt;
-    if (steal.phase === "aim") {                                       // vira a fiandeira para o botão
+    if (steal.phase === "aim") {                                       // gira 180°: fica de costas para o botão
       const want = Math.atan2(wx - steal.bx, -(wy - steal.by));
       const diff = ((want - rot + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
-      rot += diff * Math.min(1, dt * 7);
-      if (steal.t > 0.55) { steal.phase = "shoot"; steal.t = 0; const s = spinneret(); steal.dur = Math.max(0.3, Math.hypot(steal.bx - s.x, steal.by - s.y) / STEAL.shootSpeed); }
-    } else if (steal.phase === "shoot") {                              // o fio vai até o botão
-      const s = spinneret(), k = Math.min(1, steal.t / steal.dur);
-      shootLine.hidden = false;
-      setLine(shootLine, s.x, s.y, s.x + (steal.bx - s.x) * k, s.y + (steal.by - s.y) * k);
-      if (k >= 1) { shootLine.hidden = true; steal.item = grab(steal.link, s); steal.phase = "stick"; steal.t = 0; }
-    } else if (steal.phase === "stick" && steal.t > 0.4) {             // grudou → arrasta para um ponto aleatório da tela
+      rot += diff * Math.min(1, dt * 4.5);
+      if (steal.t > 0.9) { steal.phase = "stick"; steal.t = 0; steal.item = grab(steal.link, spinneret()); }
+    } else if (steal.phase === "stick" && steal.t > 0.85) {            // a rede saiu da fiandeira e grudou → arrasta
       steal.phase = "carry";
-      // ponto aleatório da tela, longe dos botões que já estão pendurados
-      const sy = window.scrollY, h = halfBody();
-      let dx = rnd(h, viewW - h), dy = sy + innerHeight * rnd(0.12, 0.42);
-      for (let i = 0; i < 16; i++) {
-        const x = rnd(h, viewW - h), y = sy + innerHeight * rnd(0.12, 0.42);
-        if (hung.every((o) => o === steal.item || o.state !== "hang" || Math.abs(o.ax - x) > (o.w + steal.item.w) / 2 + 30 || Math.abs(o.ay - y) > 260)) { dx = x; dy = y; break; }
+      // ponto aleatório em qualquer lugar da página (de preferência mais para cima), longe dos já pendurados
+      const h = halfBody(), w = steal.item.w;
+      let minX = Math.max(h, w / 2 + 12), maxX = Math.min(viewW - h, viewW - w / 2 - 12);
+      if (minX > maxX) minX = maxX = viewW / 2;
+      const top = 110, bottom = Math.max(top + 200, floorLine() - 700);
+      const pick = () => ({ x: rnd(minX, maxX), y: top + (bottom - top) * Math.pow(Math.random(), 1.7) });
+      let dst = pick();
+      for (let i = 0; i < 20; i++) {
+        const c = pick();
+        if (hung.every((o) => o === steal.item || o.state !== "hang" || Math.abs(o.ax - c.x) > (o.w + w) / 2 + 30 || Math.abs(o.ay - c.y) > 320)) { dst = c; break; }
       }
-      goTo(dx, dy);
+      goTo(dst.x, dst.y);
       steal.arrive = () => { steal.phase = "attach"; steal.t = 0; };
     } else if (steal.phase === "attach" && steal.t > 0.35) {           // prende a teia na parede e solta
       const it = steal.item;
-      if (it && it.state === "carry") { const s = spinneret(); it.ax = s.x; it.ay = s.y; it.state = "hang"; it.anchor.hidden = false; }
+      if (it && it.state === "carry") {
+        const s = spinneret(); it.ax = s.x; it.ay = s.y; it.state = "hang"; it.anchor.hidden = false;
+        it.anchor.animate([{ transform: "rotate(180deg) scale(.05)" }, { transform: "rotate(180deg) scale(1)" }], { duration: 500, easing: "ease-out" });
+      }
       steal = null;
       walkAway();
     }
@@ -613,6 +618,7 @@
     }
   }
   function walkAway() {
+    if (!inView(wy, 0)) return enterView();                            // prendeu fora da tela → volta para onde você está
     const sy = window.scrollY, h = halfBody();
     for (let i = 0; i < 14; i++) {
       const a = rnd(Math.PI * 1.05, Math.PI * 1.95), d = rnd(190, 320);    // para cima e para o lado, longe do botão
@@ -641,12 +647,13 @@
     box.append(anchor, wrap);
     stealLayer.append(box);
     link.style.visibility = "hidden"; link.dataset.stolen = "1";
-    const L = Math.hypot(bx - s.x, by - s.y);
+    const L = Math.max(2, Math.hypot(bx - s.x, by - s.y));
     const it = { link, idx: contactLinks().indexOf(link), box, anchor, wrap, line, hit, blob, clone, w, h, state: "carry",
       ax: s.x, ay: s.y, L, rope: rnd(85, 270), th: Math.atan2(-(bx - s.x), by - s.y), om: 0, px: s.x, py: s.y, vx: 0, vy: 0, rot: 0, rotV: 0, t: 0, ph: rnd(0, 6) };
     hit.style.cursor = scissorsCursor();
     hit.addEventListener("pointerdown", (e) => { if (!hasScissors()) return; e.preventDefault(); e.stopPropagation(); dropItem(it); });
-    blob.animate([{ transform: "translate(-50%, -58%) scale(.2)", opacity: 0 }, { transform: "translate(-50%, -58%) scale(1)", opacity: 1 }], { duration: 260, easing: "ease-out" });
+    // a rede sai da fiandeira bem pequena e se expande até grudar no botão (ponto de fixação sempre no fio)
+    blob.animate([{ transform: "scale(.04)", opacity: .6 }, { transform: "scale(1)", opacity: 1 }], { duration: 750, easing: "cubic-bezier(.2,.8,.3,1)" });
     hung.push(it);
     return it;
   }
@@ -680,13 +687,13 @@
           const s = spinneret(); ax = s.x; ay = s.y;
           const acc = ((ax - it.ax) / Math.max(dt, 1e-3) - (it.pvx || 0)) / Math.max(dt, 1e-3);
           it.pvx = (ax - it.ax) / Math.max(dt, 1e-3);
-          it.om += (Math.cos(it.th) * Math.max(-3000, Math.min(3000, acc)) / it.L) * dt * 0.35;
+          it.om += (Math.cos(it.th) * Math.max(-2000, Math.min(2000, acc)) / it.L) * dt * 0.18;
           it.L += (it.rope - it.L) * Math.min(1, dt * 2.2);             // cada fio tem um comprimento aleatório
           it.ax = ax; it.ay = ay;
         }
         it.om += -(STEAL.g / it.L) * Math.sin(it.th) * dt;
         it.om *= Math.exp(-(it.state === "hang" ? 2.4 : 1.4) * dt);          // amortece o balanço do transporte
-        it.th = Math.max(-0.6, Math.min(0.6, it.th + it.om * dt));
+        it.th = Math.max(-0.45, Math.min(0.45, it.th + it.om * dt));
         const sway = reduced ? 0 : Math.sin(it.t * 1.35 + it.ph) * 0.045;   // balanço leve e contínuo (~2,5°)
         it.box.style.transform = `translate(${ax}px, ${ay}px)`;
         it.wrap.style.transform = `rotate(${it.th + sway}rad)`;

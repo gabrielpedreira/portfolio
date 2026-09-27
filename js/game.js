@@ -77,6 +77,12 @@
     stepsL: "passos_lorena.mp3", stepsZ: "passos_zumbi.mp3",
     shot: "tiro_pistola.mp3", empty: "pistola_descarregada.mp3", stab: "facada.mp3", bite: "mordida_zumbi.mp3", reload: "recarga_pistola.mp3", hurt: "lorena_dano.mp3"
   };
+  const MENU_SOUNDS = {
+    abre_e_fecha_menu: "sons/abre_e_fecha_menu.mp3",
+    passando_itens_menu: "sons/passando_itens_menu.mp3",
+    confirmacao_abrir_submenu: "sons/confirmação_abrir_submenu.mp3",
+    mapa: "sons/mapa.mp3"
+  };
   // trechos do arquivo de grunhidos (segundos): curtos p/ tiro/ataque, longo p/ agarrão
   const GROANS = [[0, 1.14], [1.69, 2.69], [3.13, 3.88], [7.36, 8.1]];
   const GROAN_LONG = [4.38, 7.04];
@@ -101,10 +107,15 @@
       this.master = this.ctx.createGain();
       this.master.connect(this.ctx.destination);
       this.applyVol();
-      this.ready = Promise.all(Object.entries(SOUNDS).map(([k, f]) =>
+      const normal = Object.entries(SOUNDS).map(([k, f]) =>
         fetch(SND_DIR + f).then((r) => r.arrayBuffer())
           .then((ab) => new Promise((ok, no) => this.ctx.decodeAudioData(ab, ok, no)))
-          .then((b) => { this.buf[k] = b; }).catch(() => {})));
+          .then((b) => { this.buf[k] = b; }).catch(() => {}));
+      const menues = Object.entries(MENU_SOUNDS).map(([k, f]) =>
+        fetch(encodeURI(f)).then((r) => r.arrayBuffer())
+          .then((ab) => new Promise((ok, no) => this.ctx.decodeAudioData(ab, ok, no)))
+          .then((b) => { this.buf[k] = b; }).catch(() => {}));
+      this.ready = Promise.all([...normal, ...menues]);
       return this.ready;
     },
     applyVol() {
@@ -116,6 +127,18 @@
     toggleMute() { if (this.muted || this.vol === 0) { this.muted = false; if (this.vol === 0) this.vol = 0.5; } else this.muted = true; store.set("jogo.volume", this.vol); store.set("jogo.mudo", this.muted ? "1" : "0"); this.applyVol(); syncVolUI(); },
     resume() { this.ctx?.state === "suspended" && this.ctx.resume().catch(() => {}); },
     suspend() { this.ctx?.state === "running" && this.ctx.suspend().catch(() => {}); },
+    playMenu(k, { seg, gain = 1, pan = 0, gap = 0 } = {}) {
+      if (!this.ctx) return;
+      if (!this.buf[k]) {
+        const src = MENU_SOUNDS[k]; if (!src) return;
+        fetch(encodeURI(src)).then((r) => r.arrayBuffer())
+          .then((ab) => new Promise((ok, no) => this.ctx.decodeAudioData(ab, ok, no)))
+          .then((b) => { this.buf[k] = b; this.play(k, { seg, gain, pan, gap }); })
+          .catch(() => {});
+        return;
+      }
+      this.play(k, { seg, gain, pan, gap });
+    },
     // toca um som (opcional: trecho [ini, fim], volume, pan -1..1, intervalo mínimo entre repetições)
     play(k, { seg, gain = 1, pan = 0, gap = 0 } = {}) {
       const b = this.buf[k]; if (!b || !this.ctx) return;
@@ -124,7 +147,7 @@
       this.last[k] = now;
       this.count[k] = (this.count[k] || 0) + 1;
       const src = this.ctx.createBufferSource(); src.buffer = b;
-      const g = this.ctx.createGain(); g.gain.value = MIX[k] * gain;
+      const g = this.ctx.createGain(); g.gain.value = (MIX[k] ?? 1) * gain;
       let node = src.connect(g);
       if (this.ctx.createStereoPanner) { const p = this.ctx.createStereoPanner(); p.pan.value = Math.max(-1, Math.min(1, pan)); node = g.connect(p); }
       node.connect(this.master);
@@ -842,6 +865,7 @@
     M.open = true; M.view = "items"; M.sub = null; M.combine = null;
     Object.keys(input).forEach((k) => (input[k] = false));
     A.suspend();
+    A.playMenu("abre_e_fecha_menu", { gain: 1.0, gap: 0.25 });
     root.classList.add("menu-open");
     M.el.hidden = false;
     clearMain();
@@ -852,6 +876,7 @@
   function closeMenu() {
     if (!M.open) return;
     M.open = false; M.sub = null; M.combine = null;
+    A.playMenu("abre_e_fecha_menu", { gain: 1.0, gap: 0.25 });
     M.el.hidden = true;
     root.classList.remove("menu-open");
     last = performance.now();
@@ -862,7 +887,11 @@
     q(".gm-col--items").hidden = v === "files";
     q(".gm-col--files").hidden = v !== "files";
     clearMain();
-    if (v === "map") { q(".gm-mapview").hidden = false; q(".gm-hint").textContent = mt("mapBack"); }
+    if (v === "map") {
+      q(".gm-mapview").hidden = false;
+      q(".gm-hint").textContent = mt("mapBack");
+      A.playMenu("mapa", { gain: 1.0, gap: 0.2 });
+    }
     renderMenu();
     focusNode(v === "files" ? q("[data-file='0']") : v === "map" ? q(".gm-mapbtn:not([hidden])") || q(".a-map") : q("[data-slot='0']"));
   }
@@ -926,7 +955,10 @@
       const d = along + Math.abs(vx * dy - vy * dx) * 2.2;
       if (d < bd) { bd = d; best = n; }
     }
-    if (best) focusNode(best);
+    if (best) {
+      focusNode(best);
+      A.playMenu("passando_itens_menu", { gain: 0.9, gap: 0.12 });
+    }
   }
 
   function activate(b) {
@@ -946,6 +978,7 @@
       if (M.combine != null) return finishCombine(i);
       if (!id) return;
       if (M.view === "map") setView("items");
+      A.playMenu("confirmacao_abrir_submenu", { gain: 1.0, gap: 0.18 });
       M.sub = i; M.subIdx = 0; renderMenu();
       focusNode(q(".gm-sub button"));
     }

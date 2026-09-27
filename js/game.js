@@ -859,8 +859,17 @@
       activate(b);
     });
     el.addEventListener("pointermove", (e) => {
+      if (!M.open) return;
       const b = e.target.closest("[data-nav], .gm-sub button");
-      if (b && b !== M.focus && !b.closest("[hidden]")) focusNode(b);
+      if (!b || b.closest("[hidden]")) return;
+      if (b !== M.focus) {
+        const prev = M.focus;
+        focusNode(b);
+        if (prev !== b) {
+          A.resume();
+          A.playMenu("passando_itens_menu", { gain: 0.9, gap: 0.12 });
+        }
+      }
     });
   }
 

@@ -951,7 +951,7 @@
   }
   function move(dx, dy) {
     const nodes = navNodes();
-    if (!M.focus || !nodes.includes(M.focus)) return focusNode(nodes[0]);
+    if (!M.focus || !nodes.includes(M.focus)) { focusNode(nodes[0]); return !!nodes[0]; }
     const c = (el) => { const r = el.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; };
     const [x0, y0] = c(M.focus);
     let best = null, bd = 1e9;
@@ -963,9 +963,10 @@
       if (d < bd) { bd = d; best = n; }
     }
     if (best) {
-      A.playMenu("passando_itens_menu", { gain: 0.9, gap: 0.12 });
       focusNode(best);
+      return true;
     }
+    return false;
   }
 
   function activate(b) {
@@ -1042,10 +1043,12 @@
     const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
     e.preventDefault(); e.stopPropagation();
     if (!down) return;
-    if (k === "ArrowUp") move(0, -1);
-    else if (k === "ArrowDown") move(0, 1);
-    else if (k === "ArrowLeft") move(-1, 0);
-    else if (k === "ArrowRight") move(1, 0);
+    let moved = false;
+    if (k === "ArrowUp") moved = move(0, -1);
+    else if (k === "ArrowDown") moved = move(0, 1);
+    else if (k === "ArrowLeft") moved = move(-1, 0);
+    else if (k === "ArrowRight") moved = move(1, 0);
+    if (moved) A.playMenu("passando_itens_menu", { gain: 0.9, gap: 0.12 });
     else if ((k === "x" || k === "Enter" || k === " ") && !e.repeat) { if (M.focus) activate(M.focus); }
     else if ((k === "w" || k === "Escape" || k === "Backspace") && !e.repeat) back();
     else if (k === "m" && !e.repeat) A.toggleMute();

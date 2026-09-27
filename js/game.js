@@ -78,10 +78,10 @@
     shot: "tiro_pistola.mp3", empty: "pistola_descarregada.mp3", stab: "facada.mp3", bite: "mordida_zumbi.mp3", reload: "recarga_pistola.mp3", hurt: "lorena_dano.mp3"
   };
   const MENU_SOUNDS = {
-    abre_e_fecha_menu: "sons/abre_e_fecha_menu.mp3",
-    passando_itens_menu: "sons/passando_itens_menu.mp3",
-    confirmacao_abrir_submenu: "sons/confirmação_abrir_submenu.mp3",
-    mapa: "sons/mapa.mp3"
+    abre_e_fecha_menu: ["sons/abre_e_fecha_menu.mp3", "assets/sounds/abre_e_fecha_menu.mp3"],
+    passando_itens_menu: ["sons/passando_itens_menu.mp3", "assets/sounds/passando_itens_menu.mp3"],
+    confirmacao_abrir_submenu: ["sons/confirmação_abrir_submenu.mp3", "assets/sounds/confirmação_abrir_submenu.mp3"],
+    mapa: ["sons/mapa.mp3", "assets/sounds/mapa.mp3"]
   };
   // trechos do arquivo de grunhidos (segundos): curtos p/ tiro/ataque, longo p/ agarrão
   const GROANS = [[0, 1.14], [1.69, 2.69], [3.13, 3.88], [7.36, 8.1]];
@@ -111,10 +111,21 @@
         fetch(SND_DIR + f).then((r) => r.arrayBuffer())
           .then((ab) => new Promise((ok, no) => this.ctx.decodeAudioData(ab, ok, no)))
           .then((b) => { this.buf[k] = b; }).catch(() => {}));
-      const menues = Object.entries(MENU_SOUNDS).map(([k, f]) =>
-        fetch(encodeURI(f)).then((r) => r.arrayBuffer())
-          .then((ab) => new Promise((ok, no) => this.ctx.decodeAudioData(ab, ok, no)))
-          .then((b) => { this.buf[k] = b; }).catch(() => {}));
+      const menues = Object.entries(MENU_SOUNDS).map(([k, paths]) => {
+        const candidates = Array.isArray(paths) ? paths : [paths];
+        return (async () => {
+          for (const p of candidates) {
+            try {
+              const response = await fetch(encodeURI(p));
+              if (!response.ok) continue;
+              const ab = await response.arrayBuffer();
+              const buffer = await new Promise((ok, no) => this.ctx.decodeAudioData(ab, ok, no));
+              this.buf[k] = buffer;
+              return;
+            } catch {}
+          }
+        })();
+      });
       this.ready = Promise.all([...normal, ...menues]);
       return this.ready;
     },
@@ -130,11 +141,22 @@
     playMenu(k, { seg, gain = 1, pan = 0, gap = 0 } = {}) {
       if (!this.ctx) return;
       if (!this.buf[k]) {
-        const src = MENU_SOUNDS[k]; if (!src) return;
-        fetch(encodeURI(src)).then((r) => r.arrayBuffer())
-          .then((ab) => new Promise((ok, no) => this.ctx.decodeAudioData(ab, ok, no)))
-          .then((b) => { this.buf[k] = b; this.play(k, { seg, gain, pan, gap }); })
-          .catch(() => {});
+        const paths = MENU_SOUNDS[k];
+        if (!paths) return;
+        const candidates = Array.isArray(paths) ? paths : [paths];
+        (async () => {
+          for (const p of candidates) {
+            try {
+              const response = await fetch(encodeURI(p));
+              if (!response.ok) continue;
+              const ab = await response.arrayBuffer();
+              const buffer = await new Promise((ok, no) => this.ctx.decodeAudioData(ab, ok, no));
+              this.buf[k] = buffer;
+              this.play(k, { seg, gain, pan, gap });
+              return;
+            } catch {}
+          }
+        })();
         return;
       }
       this.play(k, { seg, gain, pan, gap });

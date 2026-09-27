@@ -83,6 +83,10 @@
     confirmacao_abrir_submenu: "assets/sounds/confirmação_abrir_submenu.mp3",
     mapa: "assets/sounds/mapa.mp3"
   };
+  const MENU_SOUND_SEGMENTS = {
+    open: [0.000, 0.207],
+    close: [0.844, 0.979]
+  };
   // trechos do arquivo de grunhidos (segundos): curtos p/ tiro/ataque, longo p/ agarrão
   const GROANS = [[0, 1.14], [1.69, 2.69], [3.13, 3.88], [7.36, 8.1]];
   const GROAN_LONG = [4.38, 7.04];
@@ -867,7 +871,7 @@
     M.open = true; M.view = "items"; M.sub = null; M.combine = null;
     Object.keys(input).forEach((k) => (input[k] = false));
     A.suspend();
-    A.playMenu("abre_e_fecha_menu", { seg: [0.000, 0.207], gain: 1.0, gap: 0.25 });
+    A.playMenu("abre_e_fecha_menu", { seg: MENU_SOUND_SEGMENTS.open, gain: 1.0, gap: 0.25 });
     root.classList.add("menu-open");
     M.el.hidden = false;
     clearMain();
@@ -878,7 +882,7 @@
   function closeMenu() {
     if (!M.open) return;
     M.open = false; M.sub = null; M.combine = null;
-    A.playMenu("abre_e_fecha_menu", { seg: [0.844, 0.979], gain: 1.0, gap: 0.25 });
+    A.playMenu("abre_e_fecha_menu", { seg: MENU_SOUND_SEGMENTS.close, gain: 1.0, gap: 0.25 });
     M.el.hidden = true;
     root.classList.remove("menu-open");
     last = performance.now();

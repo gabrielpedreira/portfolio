@@ -963,8 +963,8 @@
       if (d < bd) { bd = d; best = n; }
     }
     if (best) {
-      focusNode(best);
       A.playMenu("passando_itens_menu", { gain: 0.9, gap: 0.12 });
+      focusNode(best);
     }
   }
 

@@ -968,7 +968,10 @@
     if (!best) return false;
     const prev = M.focus;
     focusNode(best);
-    if (prev !== best) A.playMenu("passando_itens_menu", { gain: 0.9, gap: 0.12 });
+    if (prev !== best) {
+      A.resume();
+      A.playMenu("passando_itens_menu", { gain: 0.9, gap: 0.12 });
+    }
     return true;
   }
 

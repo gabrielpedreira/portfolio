@@ -870,8 +870,9 @@
     buildMenu();
     M.open = true; M.view = "items"; M.sub = null; M.combine = null;
     Object.keys(input).forEach((k) => (input[k] = false));
-    A.suspend();
+    A.resume();
     A.playMenu("abre_e_fecha_menu", { seg: MENU_SOUND_SEGMENTS.open, gain: 1.0, gap: 0.25 });
+    setTimeout(() => A.suspend(), 260);
     root.classList.add("menu-open");
     M.el.hidden = false;
     clearMain();
@@ -882,11 +883,11 @@
   function closeMenu() {
     if (!M.open) return;
     M.open = false; M.sub = null; M.combine = null;
+    A.resume();
     A.playMenu("abre_e_fecha_menu", { seg: MENU_SOUND_SEGMENTS.close, gain: 1.0, gap: 0.25 });
     M.el.hidden = true;
     root.classList.remove("menu-open");
     last = performance.now();
-    A.resume();
   }
   function setView(v) {
     M.view = v; M.sub = null; M.combine = null;

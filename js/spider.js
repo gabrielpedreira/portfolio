@@ -539,11 +539,16 @@
     el.style.height = len + "px";
   }
   // ponta do abdômen (fiandeira) da aranha na parede, em coordenadas do documento
+  // ponta do abdômen: no "cima" (andando) a cabeça aponta para rot e o abdômen fica atrás (embaixo);
+  // no "parede" (parada) o desenho é o contrário: abdômen para cima e cabeça para baixo
   function spinneret() {
-    const k = CONFIG.size[anim] || 1, d = (anim === "cima" ? 200 : 168) * scale * k;
-    const r = mode === "wallWalk" || steal ? rot : 0;
+    const k = CONFIG.size[anim] || 1, r = mode === "wallWalk" || steal ? rot : 0;
+    if (anim === "parede") { const d = 133 * scale * k; return { x: wx + Math.sin(r) * d, y: wy - Math.cos(r) * d }; }
+    const d = 198 * scale * k;
     return { x: wx - Math.sin(r) * d, y: wy + Math.cos(r) * d };
   }
+  // troca de sprite (cima ↔ parede) sem virar o corpo: os dois desenhos são opostos, então soma 180°
+  const flipRot = () => { rot += Math.PI; };
   const docY = (el) => el.getBoundingClientRect().top + window.scrollY;
   const inView = (y, m = 80) => y > window.scrollY - m && y < window.scrollY + innerHeight + m;
 
@@ -560,14 +565,14 @@
   }
 
   // a fiandeira (ponta do abdômen) fica a esta distância do centro do corpo no sprite parado da parede
-  const spinDist = () => 168 * scale * CONFIG.size.parede;
+  const spinDist = () => 133 * scale * CONFIG.size.parede;
   function startSteal(link) {
     const r = link.getBoundingClientRect();
     const bx = r.left + r.width / 2, by = r.top + window.scrollY;
     steal = { link, phase: "go", t: 0, bx, by };
     // anda até encostar no botão: depois de virar de costas, a fiandeira fica sobre o topo dele
     goTo(clampX(bx), by - spinDist() - 1);
-    steal.arrive = aimAtLink;
+    steal.arrive = () => { flipRot(); aimAtLink(); };
   }
   function aimAtLink() {
     const r = steal.link.getBoundingClientRect();
@@ -579,12 +584,14 @@
     if (!steal) return;
     steal.t += dt;
     if (steal.phase === "aim") {                                       // gira 180°: fica de costas para o botão
-      const want = Math.atan2(wx - steal.bx, -(wy - steal.by));
+      const want = Math.atan2(steal.bx - wx, wy - steal.by);           // abdômen (parede) apontando para o botão
       const diff = ((want - rot + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
-      rot += diff * Math.min(1, dt * 4.5);
-      if (steal.t > 0.9) { steal.phase = "stick"; steal.t = 0; steal.item = grab(steal.link, spinneret()); }
-    } else if (steal.phase === "stick" && steal.t > 0.85) {            // a rede saiu da fiandeira e grudou → arrasta
+      rot += diff * Math.min(1, dt * 2.6);                             // gira devagar até ficar de costas
+      if (steal.t > 1.5) { steal.phase = "stick"; steal.t = 0; steal.item = grab(steal.link, spinneret()); }
+    } else if (steal.phase === "stick" && steal.t > 2.0) {            // a rede saiu da fiandeira e grudou → arrasta
       steal.phase = "carry";
+    { const it = steal.item, before = spinneret(); flipRot(); play("cima"); const after = spinneret();
+      it.L = Math.max(4, it.L - (after.y - before.y)); it.ax = after.x; it.ay = after.y; it.pvx = 0; it.om = 0; }   // sem tranco na troca de sprite
       // ponto aleatório em qualquer lugar da página (de preferência mais para cima), longe dos já pendurados
       const h = halfBody(), w = steal.item.w;
       let minX = Math.max(h, w / 2 + 12), maxX = Math.min(viewW - h, viewW - w / 2 - 12);
@@ -597,14 +604,14 @@
         if (hung.every((o) => o === steal.item || o.state !== "hang" || Math.abs(o.ax - c.x) > (o.w + w) / 2 + 30 || Math.abs(o.ay - c.y) > 320)) { dst = c; break; }
       }
       goTo(dst.x, dst.y);
-      steal.arrive = () => { steal.phase = "attach"; steal.t = 0; };
+      steal.arrive = () => { flipRot(); steal.phase = "attach"; steal.t = 0; };
     } else if (steal.phase === "attach" && steal.t > 0.35) {           // prende a teia na parede e solta
       const it = steal.item;
       if (it && it.state === "carry") {
         const s = spinneret(); it.ax = s.x; it.ay = s.y; it.state = "hang"; it.anchor.hidden = false;
         it.anchor.animate([{ transform: "rotate(180deg) scale(.05)" }, { transform: "rotate(180deg) scale(1)" }], { duration: 500, easing: "ease-out" });
       }
-      steal = null;
+      steal = null; flipRot();
       walkAway();
     }
     // sem atalhos: ela sempre percorre a página de verdade até o destino
@@ -639,13 +646,18 @@
     box.append(anchor, wrap);
     stealLayer.append(box);
     link.style.visibility = "hidden"; link.dataset.stolen = "1";
-    const L = Math.max(2, Math.hypot(bx - s.x, by - s.y));
+    const L = Math.max(4, by - s.y);                                   // fiandeira encostada no topo do botão
     const it = { link, idx: contactLinks().indexOf(link), box, anchor, wrap, line, hit, blob, clone, w, h, state: "carry",
-      ax: s.x, ay: s.y, L, rope: rnd(85, 270), th: Math.atan2(-(bx - s.x), by - s.y), om: 0, px: s.x, py: s.y, vx: 0, vy: 0, rot: 0, rotV: 0, t: 0, ph: rnd(0, 6) };
+      ax: s.x, ay: s.y, L, rope: rnd(85, 270), th: 0, om: 0, px: s.x, py: s.y, vx: 0, vy: 0, rot: 0, rotV: 0, t: 0, ph: rnd(0, 6) };
     hit.style.cursor = scissorsCursor();
     hit.addEventListener("pointerdown", (e) => { if (!hasScissors()) return; e.preventDefault(); e.stopPropagation(); dropItem(it); });
     // a rede sai da fiandeira bem pequena e se expande até grudar no botão (ponto de fixação sempre no fio)
-    blob.animate([{ transform: "scale(.04)", opacity: .6 }, { transform: "scale(1)", opacity: 1 }], { duration: 750, easing: "cubic-bezier(.2,.8,.3,1)" });
+    // nasce minúscula debaixo do abdômen e vai saindo/crescendo até cobrir o topo do botão
+    blob.animate([
+      { transform: "translateY(-16px) scale(.03)", opacity: .7 },
+      { transform: "translateY(-6px) scale(.35)", opacity: 1, offset: .45 },
+      { transform: "translateY(0) scale(1)", opacity: 1 }
+    ], { duration: 1700, easing: "cubic-bezier(.35,.1,.25,1)" });
     hung.push(it);
     return it;
   }
@@ -675,7 +687,9 @@
       it.t += dt;
       if (it.state === "carry" || it.state === "hang") {
         let ax = it.ax, ay = it.ay;
-        if (it.state === "carry") {
+        const gluing = steal && steal.item === it && steal.phase === "stick";
+        if (gluing) { it.om = 0; it.th = 0; }                            // enquanto a rede sai, o botão fica parado
+        else if (it.state === "carry") {
           const s = spinneret(); ax = s.x; ay = s.y;
           const acc = ((ax - it.ax) / Math.max(dt, 1e-3) - (it.pvx || 0)) / Math.max(dt, 1e-3);
           it.pvx = (ax - it.ax) / Math.max(dt, 1e-3);
@@ -841,7 +855,7 @@
   // depuração: ?parede=… já existe; __aranhaRoubo() força um roubo agora (se estiver na parede)
   window.__aranhaRoubo = () => { const f = contactLinks().filter((l) => !l.dataset.stolen); if (f.length && (mode === "wallIdle" || mode === "wallWalk") && !steal) startSteal(f[(Math.random() * f.length) | 0]); return !!steal; };
   window.__aranhaParede = () => { setMode("gone"); timer = 1e9; };
-  window.__aranha = () => ({ steal: steal && steal.phase, hung: hung.map((h) => h.state), mode, anim, frame, variant, sym: sym.state, exiting, pendingShoot, beside: onWeb() && besideClickable() });
+  window.__aranha = () => ({ rot: +rot.toFixed(2), steal: steal && steal.phase, hung: hung.map((h) => h.state), mode, anim, frame, variant, sym: sym.state, exiting, pendingShoot, beside: onWeb() && besideClickable() });
 
   /* ---------- Início ---------- */
   Promise.all(Object.entries(SHEETS).map(([k, s]) => load(s.src).then((img) => [k, img])))

@@ -774,3 +774,5 @@ html.game-open { overflow: hidden; }
   margin-left: calc(58px * -0.4172); margin-top: calc(58px * 0.8589 * -0.1714);
   transform-origin: 41.72% 17.14%; pointer-events: none; z-index: 2; opacity: .95; filter: drop-shadow(0 0 2px rgba(0,0,0,.8)); }
 .steal-blob--anchor { width: 64px; margin-left: calc(64px * -0.4172); margin-top: calc(64px * 0.8589 * -0.1714); transform: rotate(180deg); }
+.spider-steal [hidden] { display: none !important; }   /* img{display:block} anulava o hidden: a teia da parede aparecia na aranha */
+.spider-steal { z-index: 58; }                         /* rede e fio sempre por baixo da aranha */

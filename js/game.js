@@ -978,7 +978,10 @@
   function activate(b) {
     if (b.dataset.o) return subOption(b.dataset.o);
     if (b.dataset.act === "exit") return closeMenu();
-    if (b.dataset.act === "files") return setView("files");
+    if (b.dataset.act === "files") {
+      A.playMenu("confirmacao_abrir_submenu", { gain: 1.0, gap: 0.18 });
+      return setView("files");
+    }
     if (b.dataset.act === "items") return setView("items");
     if (b.dataset.act === "map") return setView(M.view === "map" ? "items" : "map");
     if (b.dataset.file != null) {

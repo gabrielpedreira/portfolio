@@ -133,6 +133,9 @@
   /* ---------- Elementos ---------- */
   const mk = (cls) => { const e = document.createElement("div"); e.className = cls; layer.append(e); return e; };
   const thread = mk("spider-thread");
+  // só dá para cortar a teia depois de pegar a tesoura (seção Sobre)
+  const hasScissors = () => !!window.__tesoura;
+  const scissorsCursor = () => (hasScissors() ? CURSOR.scissorsOpen : "default");
   const threadHit = mk("spider-thread-hit");
   const cutTop = mk("spider-thread");       // pedaço de cima (sobe e some)
   const cutLow = mk("spider-thread");       // pedaço preso nela (cai junto)
@@ -145,7 +148,7 @@
   const lowThread = mk("spider-thread");
   lowThread.style.background = CONFIG.threadColor;
   const lowHit = mk("spider-thread-hit");
-  lowHit.style.cursor = CURSOR.scissorsOpen;
+  lowHit.style.cursor = scissorsCursor();
   const symCanvas = document.createElement("canvas");
   symCanvas.className = "spider-sprite spider-sym";
   layer.insertBefore(symCanvas, canvas);
@@ -156,7 +159,7 @@
   waHit.setAttribute("aria-label", "WhatsApp");
   layer.append(waHit);
   const ctx = canvas.getContext("2d");
-  threadHit.style.cursor = CURSOR.scissorsOpen;
+  threadHit.style.cursor = scissorsCursor();
   bodyHit.style.cursor = CURSOR.handOpen;
 
   const load = (src) => new Promise((ok, fail) => { const i = new Image(); i.onload = () => ok(i); i.onerror = fail; i.src = src; });
@@ -286,6 +289,7 @@
 
   /* ---------- Interações ---------- */
   threadHit.addEventListener("pointerdown", (e) => {
+    if (!hasScissors()) return;
     if (!onWeb()) return;
     // segurando o símbolo (pendurado ou nas patas): ele cai de lado e some junto com a queda
     // cai um pouco mais rápido que a aranha → chega ao chão antes e quica para a esquerda
@@ -299,7 +303,7 @@
     }
     variant = "normal"; idleAcc = 0;
     threadHit.style.cursor = CURSOR.scissorsClosed;
-    setTimeout(() => (threadHit.style.cursor = CURSOR.scissorsOpen), 350);
+    setTimeout(() => (threadHit.style.cursor = scissorsCursor()), 350);
     const anchorScreen = pos - window.scrollY + bounceOffset();
     const cutY = Math.max(0, Math.min(anchorScreen - 6, e.clientY));
     cut = { t: 0, top: cutY, low: anchorScreen - cutY };
@@ -308,9 +312,9 @@
   });
   // cortar a teia que segura o símbolo
   lowHit.addEventListener("pointerdown", () => {
-    if (!(onWeb() && variant === "hold")) return;
+    if (!hasScissors() || !(onWeb() && variant === "hold")) return;
     lowHit.style.cursor = CURSOR.scissorsClosed;
-    setTimeout(() => (lowHit.style.cursor = CURSOR.scissorsOpen), 350);
+    setTimeout(() => (lowHit.style.cursor = scissorsCursor()), 350);
     variant = "normal";
     Object.assign(sym, { state: "drop", t: 0, vx: 0, vy: 0, rotV: -CONFIG.symSpin, g: CONFIG.dropGravity, maxV: 2600 });   // reto, girando devagar (anti-horário)
     cutAt = performance.now();
@@ -318,6 +322,7 @@
     setMode("drop");
   });
   bodyHit.addEventListener("pointerenter", () => { if (mode === "wallIdle") flee(); });
+  document.addEventListener("tesoura", () => { threadHit.style.cursor = scissorsCursor(); lowHit.style.cursor = scissorsCursor(); });
   bodyHit.addEventListener("pointerdown", () => {
     if (mode !== "angry") return;
     bodyHit.style.cursor = CURSOR.handClosed;

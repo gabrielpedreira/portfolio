@@ -254,6 +254,18 @@
     if (e.target.matches?.("[data-cat]") && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); openCategory(e.target.dataset.cat); }
   });
   $("#catBack").addEventListener("click", () => openCategory(null));
+  // tesoura (seção Sobre): ao pegar, libera o corte da teia da aranha
+  const scBtn = $("#scissorsBtn");
+  scBtn?.addEventListener("click", () => {
+    if (window.__tesoura) return;
+    window.__tesoura = true;
+    document.dispatchEvent(new Event("tesoura"));
+    const box = $("#scissors");
+    box.classList.add("is-got");
+    const msg = box.querySelector("[data-i18n]");
+    msg.dataset.i18n = "about.scissorsGot"; msg.textContent = t("about.scissorsGot");
+    scBtn.addEventListener("animationend", () => (scBtn.hidden = true), { once: true });
+  });
   // logo "GP." volta para a home: fecha a categoria aberta e sobe para o topo
   $(".nav__logo")?.addEventListener("click", (e) => {
     e.preventDefault();

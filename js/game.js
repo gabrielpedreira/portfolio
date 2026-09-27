@@ -42,10 +42,10 @@
 
   const TXT = {
     pt: { kills: "ZUMBIS", restart: "Recomeçar", loading: "Carregando…", close: "Fechar jogo",
-          walkR: "anda pra direita", walkL: "anda pra esquerda", shoot: "atira", stab: "facada", reload: "recarrega", quit: "fecha o jogo",
+          walkR: "anda pra direita", walkL: "anda pra esquerda", shoot: "atira", stab: "facada", menu: "menu (X confirma)", reload: "recarrega", quit: "fecha o jogo",
           rotate: "Gire o celular para jogar", quitBtn: "Fechar", volume: "volume", mute: "Silenciar", unmute: "Ativar som" },
     en: { kills: "ZOMBIES", restart: "Restart", loading: "Loading…", close: "Close game",
-          walkR: "walk right", walkL: "walk left", shoot: "shoot", stab: "stab", reload: "reload", quit: "close the game",
+          walkR: "walk right", walkL: "walk left", shoot: "shoot", stab: "stab", menu: "menu (X confirms)", reload: "reload", quit: "close the game",
           rotate: "Rotate your phone to play", quitBtn: "Close", volume: "volume", mute: "Mute", unmute: "Unmute" }
   };
   // celular/tablet: tela cheia, pede para girar e mostra botões na tela
@@ -204,6 +204,7 @@
           </div>
           <button type="button" data-k="quit" class="game__pad-quit">✕</button>
           <button type="button" data-k="mute" class="game__pad-vol" data-vol-ico>${SPEAKER}</button>
+          <button type="button" data-k="menu" class="game__pad-menu">W</button>
         </div>
         <div class="game__rotate">
           <div class="game__rotate-ico" aria-hidden="true"></div>
@@ -216,6 +217,7 @@
           <button type="button" data-k="shoot"><kbd>D</kbd><span data-t="shoot"></span></button>
           <button type="button" data-k="stab"><kbd>A</kbd><span data-t="stab"></span></button>
           <button type="button" data-k="reload"><kbd>S</kbd><span data-t="reload"></span></button>
+          <button type="button" data-k="menu"><kbd>W</kbd><span data-t="menu"></span></button>
           <button type="button" data-k="quit"><kbd>B</kbd><span data-t="quit"></span></button>
           <div class="game__vol"><button type="button" class="game__vol-btn" data-vol-ico>${SPEAKER}</button><kbd>M</kbd><input type="range" min="0" max="100" step="5" aria-label="Volume"></div>
         </div>
@@ -242,6 +244,7 @@
       const k = b.dataset.k, id = e.pointerId;
       if (k === "quit") return close();
       if (k === "mute") { A.toggleMute(); return; }
+      if (k === "menu") { M.open ? back() : openMenu(); return; }
       press(k, true); b.classList.add("is-on");
       navigator.vibrate?.(8);
       const up = (ev) => {
@@ -292,6 +295,7 @@
   }
   function onKey(e) {
     if (root.hidden) return;
+    if (M.open) return menuKey(e);
     const down = e.type === "keydown";
     const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
     let act = null;
@@ -301,6 +305,7 @@
     else if (k === "s") act = "reload";
     else if (k === "a") act = "stab";
     else if (k === "m") { e.preventDefault(); e.stopPropagation(); if (down && !e.repeat) A.toggleMute(); return; }
+    else if (k === "w") { e.preventDefault(); e.stopPropagation(); if (down && !e.repeat) openMenu(); return; }
     else if ((k === "b" || k === "Escape") && down) { e.preventDefault(); e.stopPropagation(); return close(); }
     else if (k === "ArrowUp" || k === "ArrowDown" || k === " ") { e.preventDefault(); return; }
     if (!act) return;
@@ -321,7 +326,8 @@
   const dur = (key) => SHEETS[key].frames / SHEETS[key].fps;
 
   function reset() {
-    L = { x: 110, dir: 1, st: "idle", a: anim("l_idle"), ammo: MAX_AMMO, life: MAX_LIFE, fired: false, grabbedBy: null };
+    L = { x: 110, dir: 1, st: "idle", a: anim("l_idle"), ammo: MAX_AMMO, reserve: 150, life: MAX_LIFE, fired: false, grabbedBy: null };
+    inv = START_INV.slice();
     zombies = [];
     kills = 0;
     spawnQ = [];
@@ -421,7 +427,7 @@
       case "idle": case "walk": {
         if (input.reload) {
           input.reload = false;
-          if (L.ammo < MAX_AMMO) { setL("reload", "l_reload"); break; }
+          if (L.ammo < MAX_AMMO && L.reserve > 0) { setL("reload", "l_reload"); break; }
         }
         if (input.stab) {
           input.stab = false; input.shootQ = false;
@@ -464,7 +470,7 @@
         break;
       case "reload":
         if (!L.fired && frameOf(L.a) >= 7) { L.fired = true; A.play("reload", { pan: panOf(L.x) * 0.6 }); }   // som no encaixe do pente
-        if (done(L.a)) { L.ammo = MAX_AMMO; setL("idle", "l_idle"); }
+        if (done(L.a)) { refill(); setL("idle", "l_idle"); }
         input.shootQ = false;
         break;
       case "hurt":
@@ -732,7 +738,277 @@
       if (i < L.ammo) { if (bul) ctx.drawImage(bul, x, y, bw, bh); }
       else { ctx.fillStyle = "rgba(255,255,255,.08)"; ctx.fillRect(x + 2, y + bh - 4, bw - 4, 3); }
     }
+    // munição de reserva (a mesma do menu)
+    ctx.font = "700 12px 'JetBrains Mono', ui-monospace, monospace"; ctx.textAlign = "right"; ctx.textBaseline = "top";
+    ctx.fillStyle = L.reserve > 0 ? "rgba(236,229,216,.85)" : "#d44";
+    ctx.fillText("× " + L.reserve, W - 18, gy + 42);
     ctx.restore();
+  }
+
+  /* ---------- Menu (W abre · X confirma · setas navegam · W/Esc voltam) ---------- */
+  const MG = G + "menu/";
+  const ITEMS = {
+    pistola:     { img: "pistola.webp",     pt: ["Pistola 9mm", "Arma que me foi dada quando ingressei na polícia."],
+                                            en: ["9mm pistol", "The gun I was given when I joined the police."] },
+    municao:     { img: "municao.webp",     pt: ["Munição de 9mm", "Munição comum de pistola 9mm."],
+                                            en: ["9mm ammo", "Standard 9mm pistol ammunition."] },
+    faca:        { img: "faca.webp",        pt: ["Faca de combate", "Uma faca tática militar leve."],
+                                            en: ["Combat knife", "A light military tactical knife."] },
+    chave_comum: { img: "chave_comum.webp", pt: ["Chave do cadeado", "Uma pequena chave para abrir o cadeado do portão de acesso ao estacionamento."],
+                                            en: ["Padlock key", "A small key that opens the padlock on the parking lot gate."] },
+    chave_grifo: { img: "chave_grifo.webp", pt: ["Chave de grifo", "Talvez isso possa servir para abrir algo."],
+                                            en: ["Pipe wrench", "Maybe this could be used to open something."] },
+    kit_med:     { img: "kit_med.webp",     pt: ["Kit médico pequeno", "Kit médico básico. Recupera pouca energia, mas pode salvar sua vida!"],
+                                            en: ["Small medkit", "Basic first-aid kit. Restores a little health, but it could save your life!"] }
+  };
+  const FILES = [
+    { pt: ["Mensagem de Nicolas", "Irmã, preciso que você venha até o laboratório. Acredito que descobri algo e preciso de ajuda. Seja rápida!"],
+      en: ["Message from Nicolas", "Sis, I need you to come to the lab. I think I've found something and I need help. Be quick!"] },
+    { pt: ["Documento do computador do policial", "...o carro roubado foi deixado no estacionamento com as chaves dentro. Não há risco, pois o portão está trancado com cadeado e a chave está comigo. Mas amanhã mesmo eu inicio essa ocorrência e vou até lá retirá-lo."],
+      en: ["Document from the officer's computer", "...the stolen car was left in the parking lot with the keys inside. There's no risk, since the gate is padlocked and I have the key. But tomorrow I'll open this case and go get it."] }
+  ];
+  const MT = {
+    pt: { inUse: "Este item já está em uso.", noNeed: "Você não precisa usar este item agora.", noCombine: "Você não pode combinar esse item.",
+          loaded: "Esta arma está carregada.", reloaded: "Pistola recarregada.", healed: "Você se sente um pouco melhor.",
+          pick: "Combinar com qual item?", noAmmo: "Não há munição para recarregar.", select: "Selecione um item.",
+          keys: "Setas: mover · X: confirmar · W: voltar", use: "Usar", combine: "Combinar", check: "Checar",
+          fine: "BEM", caution: "CUIDADO", danger: "PERIGO", mapBack: "X ou W para voltar", files: "Arquivos" },
+    en: { inUse: "This item is already in use.", noNeed: "You don't need to use this item right now.", noCombine: "You can't combine this item.",
+          loaded: "This gun is already loaded.", reloaded: "Pistol reloaded.", healed: "You feel a little better.",
+          pick: "Combine with which item?", noAmmo: "There's no ammo to reload.", select: "Select an item.",
+          keys: "Arrows: move · X: confirm · W: back", use: "Use", combine: "Combine", check: "Check",
+          fine: "FINE", caution: "CAUTION", danger: "DANGER", mapBack: "X or W to go back", files: "Files" }
+  };
+  const mt = (k) => MT[lang()][k];
+  const itemTx = (id) => ITEMS[id][lang()];
+  const START_INV = ["pistola", "municao", "faca", "chave_comum", "chave_grifo", "kit_med", "kit_med", null];
+  let inv = START_INV.slice();
+  const M = { open: false, view: "items", sub: null, subIdx: 0, combine: null, msgT: 0, el: null };
+
+  function buildMenu() {
+    if (M.el) return;
+    const el = document.createElement("div");
+    el.className = "gmenu";
+    el.hidden = true;
+    el.innerHTML = `
+      <div class="gmenu__frame">
+        <img class="gm-bg" src="${MG}hud_menu.webp" alt="">
+        <div class="gm-face"><img alt=""></div>
+        <div class="gm-cond"><div class="gm-life"></div><span class="gm-state"></span></div>
+        <div class="gm-weapon"><img src="${MG}pistola.webp" alt=""><span class="gm-mag"></span></div>
+        <div class="gm-main">
+          <div class="gm-check" hidden><img alt=""><div><h3></h3><p></p></div></div>
+          <div class="gm-file" hidden><h3></h3><p></p></div>
+          <div class="gm-mapview" hidden><div class="gm-map"><img src="${MG}mapa.png" alt=""><span class="gm-pulse"></span></div></div>
+          <p class="gm-hint"></p>
+          <p class="gm-msg" hidden></p>
+        </div>
+        <div class="gm-col gm-col--items">
+          <button type="button" class="gm-btn gm-exit" data-nav data-act="exit" aria-label="Sair"></button>
+          <button type="button" class="gm-btn gm-files" data-nav data-act="files" aria-label="Arquivos"></button>
+          <button type="button" class="gm-btn gm-mapbtn" data-nav data-act="map" aria-label="Mapa"></button>
+          <div class="gm-slots">${Array.from({ length: 8 }, (_, i) => `<button type="button" class="gm-slot" data-nav data-slot="${i}"></button>`).join("")}</div>
+        </div>
+        <div class="gm-col gm-col--files" hidden>
+          <img src="${MG}hud_arquivo.webp" alt="">
+          <button type="button" class="gm-btn a-exit" data-nav data-act="exit" aria-label="Sair"></button>
+          <button type="button" class="gm-btn a-menu" data-nav data-act="items" aria-label="Menu"></button>
+          <button type="button" class="gm-btn a-map" data-nav data-act="map" aria-label="Mapa"></button>
+          <div class="gm-filelist">${FILES.map((_, i) => `<button type="button" class="gm-fileitem" data-nav data-file="${i}"></button>`).join("")}</div>
+        </div>
+        <div class="gm-sub" hidden>
+          <img src="${MG}submenu.png" alt="">
+          <button type="button" data-o="use"></button><button type="button" data-o="combine"></button><button type="button" data-o="check"></button>
+        </div>
+      </div>`;
+    root.querySelector(".game__screen").appendChild(el);
+    M.el = el;
+    el.addEventListener("click", (e) => {
+      const b = e.target.closest("button"); if (!b || !M.open) return;
+      e.preventDefault();
+      focusNode(b);
+      activate(b);
+    });
+    el.addEventListener("pointermove", (e) => {
+      const b = e.target.closest("[data-nav], .gm-sub button");
+      if (b && b !== M.focus && !b.closest("[hidden]")) focusNode(b);
+    });
+  }
+
+  const q = (s) => M.el.querySelector(s);
+  function openMenu() {
+    if (!running || M.open || over.t >= 0) return;
+    buildMenu();
+    M.open = true; M.view = "items"; M.sub = null; M.combine = null;
+    Object.keys(input).forEach((k) => (input[k] = false));
+    A.suspend();
+    root.classList.add("menu-open");
+    M.el.hidden = false;
+    clearMain();
+    renderMenu();
+    focusNode(q(`[data-slot="${Math.max(0, inv.findIndex(Boolean))}"]`));
+    M.el.querySelector(".gmenu__frame").animate([{ opacity: 0, transform: "scale(.97)" }, { opacity: 1, transform: "none" }], { duration: 180, easing: "ease-out" });
+  }
+  function closeMenu() {
+    if (!M.open) return;
+    M.open = false; M.sub = null; M.combine = null;
+    M.el.hidden = true;
+    root.classList.remove("menu-open");
+    last = performance.now();
+    A.resume();
+  }
+  function setView(v) {
+    M.view = v; M.sub = null; M.combine = null;
+    q(".gm-col--items").hidden = v === "files";
+    q(".gm-col--files").hidden = v !== "files";
+    clearMain();
+    if (v === "map") { q(".gm-mapview").hidden = false; q(".gm-hint").textContent = mt("mapBack"); }
+    renderMenu();
+    focusNode(v === "files" ? q("[data-file='0']") : v === "map" ? q(".gm-mapbtn:not([hidden])") || q(".a-map") : q("[data-slot='0']"));
+  }
+  function clearMain() {
+    ["gm-check", "gm-file", "gm-mapview", "gm-msg"].forEach((c) => (q("." + c).hidden = true));
+    q(".gm-hint").hidden = false;
+    q(".gm-hint").textContent = mt("select") + "  " + mt("keys");
+  }
+  function say(k) {
+    const m = q(".gm-msg");
+    m.textContent = mt(k); m.hidden = false;
+    clearTimeout(M.msgT);
+    M.msgT = setTimeout(() => (m.hidden = true), 2600);
+  }
+
+  function renderMenu() {
+    if (!M.el) return;
+    const life = L.life, tier = life > 6 ? 0 : life > 3 ? 1 : 2;
+    q(".gm-face img").src = G + ["rosto_bem.png", "rosto_caution.png", "rosto_danger.png"][tier];
+    q(".gm-life").innerHTML = Array.from({ length: MAX_LIFE }, (_, i) => `<i class="${i < life ? "on" : ""}"></i>`).join("");
+    q(".gm-cond").dataset.tier = tier;
+    q(".gm-state").textContent = mt(["fine", "caution", "danger"][tier]);
+    q(".gm-mag").textContent = L.ammo;
+    M.el.querySelectorAll(".gm-slot").forEach((b, i) => {
+      const id = inv[i];
+      b.classList.toggle("is-empty", !id);
+      b.classList.toggle("is-combine", M.combine === i);
+      b.innerHTML = id ? `<img src="${MG}${ITEMS[id].img}" alt=""><span>${id === "municao" ? L.reserve : id === "pistola" ? L.ammo : ""}</span>` : "";
+      b.setAttribute("aria-label", id ? itemTx(id)[0] : "—");
+    });
+    M.el.querySelectorAll(".gm-fileitem").forEach((b, i) => (b.textContent = FILES[i][lang()][0]));
+    const sub = q(".gm-sub");
+    sub.querySelectorAll("button").forEach((b) => b.setAttribute("aria-label", mt(b.dataset.o)));
+    sub.hidden = M.sub == null;
+    if (M.sub != null) {
+      const slot = q(`[data-slot="${M.sub}"]`), fr = q(".gmenu__frame").getBoundingClientRect(), r = slot.getBoundingClientRect();
+      sub.style.top = Math.min(78, Math.max(2, ((r.top - fr.top) / fr.height) * 100 - 4)) + "%";
+    }
+  }
+
+  // navegação espacial: vai para o elemento mais próximo na direção da seta
+  function navNodes() {
+    if (M.sub != null) return [...q(".gm-sub").querySelectorAll("button")];
+    return [...M.el.querySelectorAll("[data-nav]")].filter((b) => !b.closest("[hidden]"));
+  }
+  function focusNode(b) {
+    if (!b) return;
+    M.focus?.classList.remove("is-focus");
+    M.focus = b; b.classList.add("is-focus");
+  }
+  function move(dx, dy) {
+    const nodes = navNodes();
+    if (!M.focus || !nodes.includes(M.focus)) return focusNode(nodes[0]);
+    const c = (el) => { const r = el.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; };
+    const [x0, y0] = c(M.focus);
+    let best = null, bd = 1e9;
+    for (const n of nodes) {
+      if (n === M.focus) continue;
+      const [x, y] = c(n), vx = x - x0, vy = y - y0;
+      const along = vx * dx + vy * dy; if (along <= 2) continue;
+      const d = along + Math.abs(vx * dy - vy * dx) * 2.2;
+      if (d < bd) { bd = d; best = n; }
+    }
+    if (best) focusNode(best);
+  }
+
+  function activate(b) {
+    if (b.dataset.o) return subOption(b.dataset.o);
+    if (b.dataset.act === "exit") return closeMenu();
+    if (b.dataset.act === "files") return setView("files");
+    if (b.dataset.act === "items") return setView("items");
+    if (b.dataset.act === "map") return setView(M.view === "map" ? "items" : "map");
+    if (b.dataset.file != null) {
+      const f = FILES[+b.dataset.file][lang()];
+      clearMain(); q(".gm-hint").hidden = true;
+      const box = q(".gm-file"); box.hidden = false; box.querySelector("h3").textContent = f[0]; box.querySelector("p").textContent = f[1];
+      return;
+    }
+    if (b.dataset.slot != null) {
+      const i = +b.dataset.slot, id = inv[i];
+      if (M.combine != null) return finishCombine(i);
+      if (!id) return;
+      if (M.view === "map") setView("items");
+      M.sub = i; M.subIdx = 0; renderMenu();
+      focusNode(q(".gm-sub button"));
+    }
+  }
+  function subOption(o) {
+    const i = M.sub, id = inv[i];
+    M.sub = null; renderMenu(); focusNode(q(`[data-slot="${i}"]`));
+    if (!id) return;
+    clearMain();
+    if (o === "check") {
+      const [name, desc] = itemTx(id);
+      q(".gm-hint").hidden = true;
+      const box = q(".gm-check"); box.hidden = false;
+      box.querySelector("img").src = MG + ITEMS[id].img; box.querySelector("h3").textContent = name; box.querySelector("p").textContent = desc;
+    } else if (o === "use") {
+      if (id === "pistola" || id === "faca") return say("inUse");
+      if (id === "kit_med") {
+        if (L.life >= MAX_LIFE) return say("noNeed");
+        L.life = Math.min(MAX_LIFE, L.life + 3);
+        inv[i] = null; renderMenu(); return say("healed");
+      }
+      say("noNeed");
+    } else if (o === "combine") {
+      if (id !== "pistola" && id !== "municao") return say("noCombine");
+      M.combine = i; renderMenu();
+      q(".gm-hint").textContent = mt("pick");
+    }
+  }
+  function finishCombine(j) {
+    const a = inv[M.combine], b = inv[j];
+    M.combine = null; renderMenu(); clearMain();
+    const pair = [a, b].sort().join("+");
+    if (pair !== "municao+pistola") return say("noCombine");
+    if (L.ammo >= MAX_AMMO) return say("loaded");
+    if (L.reserve <= 0) return say("noAmmo");
+    refill(); renderMenu(); A.resume(); A.play("reload"); setTimeout(() => M.open && A.suspend(), 700);
+    say("reloaded");
+  }
+  // carrega o pente com a munição de reserva (o total do menu vai sendo gasto)
+  function refill() {
+    const take = Math.min(MAX_AMMO - L.ammo, L.reserve);
+    L.ammo += take; L.reserve -= take;
+    if (L.reserve <= 0) { const k = inv.indexOf("municao"); if (k >= 0) inv[k] = null; }
+  }
+  function back() {
+    if (M.sub != null) { const i = M.sub; M.sub = null; renderMenu(); return focusNode(q(`[data-slot="${i}"]`)); }
+    if (M.combine != null) { M.combine = null; renderMenu(); return clearMain(); }
+    if (M.view !== "items") return setView("items");
+    if (!q(".gm-check").hidden || !q(".gm-file").hidden) return clearMain();
+    closeMenu();
+  }
+  function menuKey(e) {
+    const down = e.type === "keydown";
+    const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+    e.preventDefault(); e.stopPropagation();
+    if (!down) return;
+    if (k === "ArrowUp") move(0, -1);
+    else if (k === "ArrowDown") move(0, 1);
+    else if (k === "ArrowLeft") move(-1, 0);
+    else if (k === "ArrowRight") move(1, 0);
+    else if ((k === "x" || k === "Enter" || k === " ") && !e.repeat) { if (M.focus) activate(M.focus); }
+    else if ((k === "w" || k === "Escape" || k === "Backspace") && !e.repeat) back();
+    else if (k === "m" && !e.repeat) A.toggleMute();
   }
 
   /* ---------- laço ---------- */
@@ -764,6 +1040,7 @@
     const dt = Math.min(0.05, (now - last) / 1000 || 0);
     last = now;
     if (PORTRAIT()) { A.suspend(); raf = requestAnimationFrame(tick); return; }   // pausado até girar a tela
+    if (M.open) { draw(); raf = requestAnimationFrame(tick); return; }   // menu aberto: jogo pausado
     A.resume();
     updateLorena(dt);
     updateZombies(dt);
@@ -815,6 +1092,7 @@
     removeEventListener("keydown", onKey, true);
     removeEventListener("keyup", onKey, true);
     Object.keys(input).forEach((k) => (input[k] = false));
+    if (M.open) { M.open = false; M.el.hidden = true; root.classList.remove("menu-open"); }
     A.stopLoops(); A.suspend();
     exitFull();
     const done = () => { root.hidden = true; document.documentElement.classList.remove("game-open"); opener?.focus?.({ preventScroll: true }); };

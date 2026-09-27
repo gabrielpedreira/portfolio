@@ -897,7 +897,7 @@
     if (v === "map") {
       q(".gm-mapview").hidden = false;
       q(".gm-hint").textContent = mt("mapBack");
-      A.playMenu("mapa", { gain: 1.0, gap: 0.2 });
+      A.playMenu("mapa", { gain: 0.6, gap: 0.2 });
     }
     renderMenu();
     focusNode(v === "files" ? q("[data-file='0']") : v === "map" ? q(".gm-mapbtn:not([hidden])") || q(".a-map") : q("[data-slot='0']"));
@@ -982,6 +982,7 @@
     if (b.dataset.act === "items") return setView("items");
     if (b.dataset.act === "map") return setView(M.view === "map" ? "items" : "map");
     if (b.dataset.file != null) {
+      A.playMenu("confirmacao_abrir_submenu", { gain: 1.0, gap: 0.18 });
       const f = FILES[+b.dataset.file][lang()];
       clearMain(); q(".gm-hint").hidden = true;
       const box = q(".gm-file"); box.hidden = false; box.querySelector("h3").textContent = f[0]; box.querySelector("p").textContent = f[1];

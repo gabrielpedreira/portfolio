@@ -44,6 +44,7 @@
     bodyMin: 46,
     gravity: 2600,        // px/s² na queda
     maxFall: 2400,        // px/s velocidade máxima de queda
+    angryMax: 10000,      // ms brava no chão; sem cafuné, depois disso ela se acalma e vai embora sozinha
     calmTime: 5000,       // ms em pé, calma, antes de ir embora
     runSpeed: 950,        // px/s correndo no chão (andando_perfil)
     returnAfter: 7000,    // ms depois de sumir para voltar pela parede
@@ -421,6 +422,7 @@
     }
 
     gy = floorLine();                                         // o chão pode mudar (redimensionar)
+    if (mode === "angry" && timer >= CONFIG.angryMax) setMode("calm");   // sem cafuné: se acalma sozinha
     if (mode === "calm" && timer >= CONFIG.calmTime) setMode("turning");
     if (mode === "walking") {
       gx += CONFIG.runSpeed * dt;
@@ -498,7 +500,7 @@
       return;
     }
     const dx = p.x - wx, dy = p.y - wy, d = Math.hypot(dx, dy);
-    const step = CONFIG.wallSpeed * dt;
+    const step = CONFIG.wallSpeed * (steal && (steal.phase === "go" || steal.phase === "carry") ? 1.7 : 1) * dt;   // em missão anda mais depressa
     // vira suavemente para a direção do movimento (sprite olha para cima)
     const want = Math.atan2(dx, -dy);
     let diff = ((want - rot + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
@@ -605,17 +607,7 @@
       steal = null;
       walkAway();
     }
-    // atalho fora da tela: longe e sem ninguém vendo, ela "pula" o caminho longo
-    if (steal && (steal.phase === "go" || steal.phase === "carry") && path.length) {
-      const f = path[path.length - 1];
-      if (!inView(wy)) {
-        if (!inView(f.y)) { wx = f.x; wy = f.y; path = [f]; }
-        else {
-          const edge = f.y < wy ? window.scrollY + innerHeight + 70 : window.scrollY - 70;
-          if (Math.abs(wy - edge) > 160) { wy = edge; wx = clampX(wx); path = makePath(wx, wy, f.x, f.y); if (steal.item) resetSwing(steal.item); }
-        }
-      }
-    }
+    // sem atalhos: ela sempre percorre a página de verdade até o destino
   }
   function walkAway() {
     if (!inView(wy, 0)) return enterView();                            // prendeu fora da tela → volta para onde você está

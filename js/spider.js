@@ -643,7 +643,7 @@
     link.style.visibility = "hidden"; link.dataset.stolen = "1";
     const L = Math.hypot(bx - s.x, by - s.y);
     const it = { link, idx: contactLinks().indexOf(link), box, anchor, wrap, line, hit, blob, clone, w, h, state: "carry",
-      ax: s.x, ay: s.y, L, th: Math.atan2(-(bx - s.x), by - s.y), om: 0, px: s.x, py: s.y, vx: 0, vy: 0, rot: 0, rotV: 0, t: 0, ph: rnd(0, 6) };
+      ax: s.x, ay: s.y, L, rope: rnd(85, 270), th: Math.atan2(-(bx - s.x), by - s.y), om: 0, px: s.x, py: s.y, vx: 0, vy: 0, rot: 0, rotV: 0, t: 0, ph: rnd(0, 6) };
     hit.style.cursor = scissorsCursor();
     hit.addEventListener("pointerdown", (e) => { if (!hasScissors()) return; e.preventDefault(); e.stopPropagation(); dropItem(it); });
     blob.animate([{ transform: "translate(-50%, -58%) scale(.2)", opacity: 0 }, { transform: "translate(-50%, -58%) scale(1)", opacity: 1 }], { duration: 260, easing: "ease-out" });
@@ -681,7 +681,7 @@
           const acc = ((ax - it.ax) / Math.max(dt, 1e-3) - (it.pvx || 0)) / Math.max(dt, 1e-3);
           it.pvx = (ax - it.ax) / Math.max(dt, 1e-3);
           it.om += (Math.cos(it.th) * Math.max(-3000, Math.min(3000, acc)) / it.L) * dt * 0.35;
-          it.L += (STEAL.rope - it.L) * Math.min(1, dt * 2.2);          // recolhe o fio até o tamanho de transporte
+          it.L += (it.rope - it.L) * Math.min(1, dt * 2.2);             // cada fio tem um comprimento aleatório
           it.ax = ax; it.ay = ay;
         }
         it.om += -(STEAL.g / it.L) * Math.sin(it.th) * dt;

@@ -24,6 +24,8 @@
     l_empty:  { src: "lorena_descarregada.png", fps: 15 },
     l_stab:   { src: "lorena_facada.png",       fps: 15 },
     l_reload: { src: "lorena_recarga.png",      fps: 15 },
+    l_shootWalk:  { src: "lorena_tiro_andando.png",    fps: 12 },
+    l_reloadWalk: { src: "lorena_recarga_andando.png", fps: 15 },
     l_hurt:   { src: "lorena_dano.png",         fps: 15 },
     l_grab:   { src: "lorena_agarrada.png",     fps: 8,  loop: true },
     l_dead:   { src: "lorena_morte.png",        fps: 8 },
@@ -84,8 +86,10 @@
     mapa: "assets/sounds/mapa.mp3"
   };
   const MENU_SOUND_SEGMENTS = {
-    open: [0.000, 0.207],
-    close: [0.844, 0.979]
+    open: [0.045, 0.235],     // começa no ataque do som (antes havia 52 ms de silêncio e o final era cortado)
+    close: [0.838, 1.000],
+    move: [0.210, 0.340],     // o arquivo tem 215 ms de silêncio no início: sem isso o som vinha atrasado
+    confirm: [0.180, 0.330]   // 186 ms de silêncio no início
   };
   // trechos do arquivo de grunhidos (segundos): curtos p/ tiro/ataque, longo p/ agarrão
   const GROANS = [[0, 1.14], [1.69, 2.69], [3.13, 3.88], [7.36, 8.1]];
@@ -177,6 +181,7 @@
       if (Math.abs(target - l.cur) > 0.01) { l.g.gain.setTargetAtTime(target, this.ctx.currentTime, 0.06); l.cur = target; }
       if (l.p) l.p.pan.setTargetAtTime(Math.max(-1, Math.min(1, pan)), this.ctx.currentTime, 0.1);
     },
+    quietLoops() { if (!this.ctx) return; for (const l of Object.values(this.loops)) { l.g.gain.cancelScheduledValues(this.ctx.currentTime); l.g.gain.setTargetAtTime(0, this.ctx.currentTime, 0.04); l.cur = 0; } },
     stopLoops() { for (const l of Object.values(this.loops)) { try { l.src.stop(); } catch {} } this.loops = {}; }
   };
   const panOf = (x) => (x / W) * 1.4 - 0.7;
@@ -450,13 +455,26 @@
   }
 
   /* ---------- Lorena ---------- */
+  // anda na direção mv (-1/1) sem atravessar zumbis; devolve true se andou
+  function stepLorena(mv, dt) {
+    let nx = Math.max(40, Math.min(W - 40, L.x + mv * 120 * dt));
+    for (const z of zombies) {
+      if (!alive(z)) continue;
+      const d = (z.x - L.x) * mv;
+      if (d > 0 && d < STOP + 40) nx = mv > 0 ? Math.min(nx, z.x - (STOP - 6)) : Math.max(nx, z.x + (STOP - 6));
+    }
+    if ((nx - L.x) * mv > 0) { L.x = nx; return true; }
+    return false;
+  }
+  const heldDir = () => (input.right ? 1 : 0) - (input.left ? 1 : 0);
   function updateLorena(dt) {
     L.a.t += dt;
     switch (L.st) {
       case "idle": case "walk": {
+        const walking = heldDir() !== 0;
         if (input.reload) {
           input.reload = false;
-          if (L.ammo < MAX_AMMO && L.reserve > 0) { setL("reload", "l_reload"); break; }
+          if (L.ammo < MAX_AMMO && L.reserve > 0) { walking ? setL("reloadWalk", "l_reloadWalk") : setL("reload", "l_reload"); break; }
         }
         if (input.stab) {
           input.stab = false; input.shootQ = false;
@@ -465,21 +483,14 @@
         }
         if (input.shootQ || input.shoot) {
           input.shootQ = false;
-          if (L.ammo > 0) setL("shoot", "l_shoot");
+          if (L.ammo > 0) walking ? setL("shootWalk", "l_shootWalk") : setL("shoot", "l_shoot");
           else { setL("empty", "l_empty"); A.play("empty", { pan: panOf(L.x) * 0.6 }); }   // clique da arma vazia
           break;
         }
-        const mv = (input.right ? 1 : 0) - (input.left ? 1 : 0);
+        const mv = heldDir();
         if (mv) {
           L.dir = mv;
-          let nx = Math.max(40, Math.min(W - 40, L.x + mv * 120 * dt));
-          // não atravessa zumbis vivos
-          for (const z of zombies) {
-            if (!alive(z)) continue;
-            const d = (z.x - L.x) * mv;
-            if (d > 0 && d < STOP + 40) nx = mv > 0 ? Math.min(nx, z.x - (STOP - 6)) : Math.max(nx, z.x + (STOP - 6));
-          }
-          if ((nx - L.x) * mv > 0) L.x = nx;
+          stepLorena(mv, dt);
           if (L.st !== "walk") setL("walk", "l_walk");
         } else if (L.st !== "idle") setL("idle", "l_idle");
         break;
@@ -487,6 +498,17 @@
       case "shoot":
         if (!L.fired && frameOf(L.a) >= 3) { L.fired = true; L.ammo--; A.play("shot", { pan: panOf(L.x) * 0.6 }); fire(); }
         if (done(L.a)) setL("idle", "l_idle");      // ciclo completo, nunca interrompido por outro tiro
+        break;
+      case "shootWalk":                                  // atira andando: segue na direção em que olha
+        if (heldDir() === L.dir) stepLorena(L.dir, dt);
+        if (!L.fired && frameOf(L.a) >= 3) { L.fired = true; L.ammo--; A.play("shot", { pan: panOf(L.x) * 0.6 }); fire(); }
+        if (done(L.a)) setL("idle", "l_idle");      // ciclo completo; no quadro seguinte volta a andar se a tecla estiver pressionada
+        break;
+      case "reloadWalk":                                 // recarrega andando
+        if (heldDir() === L.dir) stepLorena(L.dir, dt);
+        if (!L.fired && frameOf(L.a) >= 8) { L.fired = true; A.play("reload", { pan: panOf(L.x) * 0.6 }); }
+        if (done(L.a)) { refill(); setL("idle", "l_idle"); }
+        input.shootQ = false;
         break;
       case "empty":
         if (done(L.a)) setL("idle", "l_idle");
@@ -867,7 +889,7 @@
         focusNode(b);
         if (prev !== b) {
           A.resume();
-          A.playMenu("passando_itens_menu", { gain: 0.9, gap: 0.12 });
+          A.playMenu("passando_itens_menu", { seg: MENU_SOUND_SEGMENTS.move, gain: 0.9, gap: 0.08 });
         }
       }
     });
@@ -881,7 +903,7 @@
     Object.keys(input).forEach((k) => (input[k] = false));
     A.resume();
     A.playMenu("abre_e_fecha_menu", { seg: MENU_SOUND_SEGMENTS.open, gain: 1.0, gap: 0.25 });
-    setTimeout(() => A.suspend(), 260);
+    A.quietLoops();                                    // jogo pausado: ambiência e passos param, mas os sons do menu tocam
     root.classList.add("menu-open");
     M.el.hidden = false;
     clearMain();
@@ -979,7 +1001,7 @@
     focusNode(best);
     if (prev !== best) {
       A.resume();
-      A.playMenu("passando_itens_menu", { gain: 0.9, gap: 0.12 });
+      A.playMenu("passando_itens_menu", { seg: MENU_SOUND_SEGMENTS.move, gain: 0.9, gap: 0.08 });
     }
     return true;
   }
@@ -988,13 +1010,13 @@
     if (b.dataset.o) return subOption(b.dataset.o);
     if (b.dataset.act === "exit") return closeMenu();
     if (b.dataset.act === "files") {
-      A.playMenu("confirmacao_abrir_submenu", { gain: 1.0, gap: 0.18 });
+      A.playMenu("confirmacao_abrir_submenu", { seg: MENU_SOUND_SEGMENTS.confirm, gain: 1.0, gap: 0.12 });
       return setView("files");
     }
     if (b.dataset.act === "items") return setView("items");
     if (b.dataset.act === "map") return setView(M.view === "map" ? "items" : "map");
     if (b.dataset.file != null) {
-      A.playMenu("confirmacao_abrir_submenu", { gain: 1.0, gap: 0.18 });
+      A.playMenu("confirmacao_abrir_submenu", { seg: MENU_SOUND_SEGMENTS.confirm, gain: 1.0, gap: 0.12 });
       const f = FILES[+b.dataset.file][lang()];
       clearMain(); q(".gm-hint").hidden = true;
       const box = q(".gm-file"); box.hidden = false; box.querySelector("h3").textContent = f[0]; box.querySelector("p").textContent = f[1];
@@ -1005,7 +1027,7 @@
       if (M.combine != null) return finishCombine(i);
       if (!id) return;
       if (M.view === "map") setView("items");
-      A.playMenu("confirmacao_abrir_submenu", { gain: 1.0, gap: 0.18 });
+      A.playMenu("confirmacao_abrir_submenu", { seg: MENU_SOUND_SEGMENTS.confirm, gain: 1.0, gap: 0.12 });
       M.sub = i; M.subIdx = 0; renderMenu();
       focusNode(q(".gm-sub button"));
     }
@@ -1041,7 +1063,7 @@
     if (pair !== "municao+pistola") return say("noCombine");
     if (L.ammo >= MAX_AMMO) return say("loaded");
     if (L.reserve <= 0) return say("noAmmo");
-    refill(); renderMenu(); A.resume(); A.play("reload"); setTimeout(() => M.open && A.suspend(), 700);
+    refill(); renderMenu(); A.resume(); A.play("reload");
     say("reloaded");
   }
   // carrega o pente com a munição de reserva (o total do menu vai sendo gasto)
@@ -1080,7 +1102,8 @@
       const g = heli ? Math.max(0, 1 - Math.abs(heli.x - W / 2) / (W / 2 + 140)) : 0;
       A.loop("heli", heli ? 0.15 + 0.85 * g : 0, heli ? panOf(heli.x) : 0);
     }
-    A.loop("stepsL", L.st === "walk" ? 1 : 0, panOf(L.x) * 0.6);
+    const walkingNow = L.st === "walk" || ((L.st === "shootWalk" || L.st === "reloadWalk") && heldDir() === L.dir);
+    A.loop("stepsL", walkingNow ? 1 : 0, panOf(L.x) * 0.6);
     let zg = 0, zx = 0, n = 0;
     for (const z of zombies) {
       if (z.st !== "walk" || offScreen(z.x)) continue;

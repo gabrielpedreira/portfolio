@@ -36,6 +36,14 @@
     z_hurt:   { src: "zumbi_dano.png",          fps: 12 },
     z_dead:   { src: "zumbi_morte.png",         fps: 12 },
     over:     { src: "game_over.png",           fps: 12 },
+    hz_idle:  { src: "zangao_idle.webp",      fps: 10, loop: true, fw: 258 },
+    hz_bite:  { src: "zangao_mordida.webp",   fps: 15, loop: true, fw: 258 },
+    hz_prep:  { src: "zangao_prep.webp",      fps: 15, fw: 258 },
+    hz_sting: { src: "zangao_ferroada.webp",  fps: 15, fw: 258 },
+    hz_undo:  { src: "zangao_desfaz.webp",    fps: 15, fw: 258 },
+    hz_dano:  { src: "zangao_dano.webp",      fps: 15, fw: 258 },
+    hz_fall:  { src: "zangao_queda.webp",     fps: 8,  loop: true, fw: 258 },
+    hz_rot:   { src: "zangao_morto.webp",     fps: 6,  fw: 258 },
     bug:      { src: "inseto_voando.png",       fps: 12, loop: true },
     heli:     { src: "helicoptero.png",         fps: 16, loop: true }
   };
@@ -205,7 +213,7 @@
     if (loaded) return loaded;
     const one = (src) => new Promise((ok) => { const i = new Image(); i.onload = () => ok(i); i.onerror = () => ok(null); i.src = G + src; });
     const jobs = [];
-    for (const [k, s] of Object.entries(SHEETS)) jobs.push(one(s.src).then((i) => { s.img = i; s.frames = i ? Math.max(1, Math.round(i.width / FR)) : 1; }));
+    for (const [k, s] of Object.entries(SHEETS)) jobs.push(one(s.src).then((i) => { s.img = i; s.frames = i ? Math.max(1, Math.round(i.width / (s.fw || FR))) : 1; }));
     for (const [k, src] of Object.entries(IMGS)) jobs.push(one(src).then((i) => { IMGS[k] = i; }));
     return (loaded = Promise.all(jobs));
   }
@@ -366,7 +374,7 @@
     kills = 0;
     spawnQ = [];
     over = { fade: 0, t: -1, shown: false };
-    bug = null; heli = null;
+    bug = null; heli = null; hornet = null; hornetQ = null;
     for (let i = 0; i < WAVES[0][1]; i++) spawn(1, W + 70 + i * 150);
     restartBtn.hidden = true;
     Object.keys(input).forEach((k) => (input[k] = false));
@@ -439,7 +447,10 @@
     if (!bug) return;
     bug.t += dt; bug.a.t += dt;
     bug.x += bug.dir * bug.speed * dt;
-    if (bug.x < -80 || bug.x > W + 80) bug = null;
+    if (bug.x < -80 || bug.x > W + 80) {
+      if (!hornet && !hornetQ) hornetQ = { side: bug.dir, t: 3 };   // 3 s depois o zangão chega pelo mesmo lado
+      bug = null;
+    }
   }
   function drawBug() {
     if (!bug) return;
@@ -548,6 +559,10 @@
       const d = (z.x - L.x) * L.dir;
       if (d > -10 && d <= STOP + 24 && d < bd) { bd = d; best = z; }
     }
+    if (hornetHittable()) {
+      const d = (hornet.x - L.x) * L.dir;
+      if (d > -10 && d <= STOP + 34 && d < bd) return hitHornet();
+    }
     if (best) hitZombie(best);
   }
   function fire() {
@@ -558,8 +573,175 @@
       const d = (z.x - L.x) * L.dir;
       if (d > -10 && d < bd) { bd = d; best = z; }
     }
+    if (hornetHittable()) {
+      const d = (hornet.x - L.x) * L.dir;
+      if (d > -10 && d < bd) return hitHornet();
+    }
     if (!best) return;
     hitZombie(best);
+  }
+
+  /* ---------- Zangão (inimigo voador) ----------
+     Surge 3 s depois que o inseto do fundo some, pelo mesmo lado para onde ele voou.
+     Base: paira num canto alto, cruza para o outro lado da Lorena (sempre virado para ela),
+     às vezes desce até a altura dela e volta a subir. Ataques: mordida (60%) e ferroada (40%). */
+  const HZ = {
+    hp: 9, k: 0.6, fw: 258, fh: 216, cx: 0.49, cy: 0.5,
+    high: [150, 215], low: 384, speed: 210, biteSpeed: 430, gravity: 1300,
+    attackEvery: [3.2, 6.0], hoverFor: [1.4, 3.0]
+  };
+  let hornet = null, hornetQ = null;
+  const hrnd = (a, b) => a + Math.random() * (b - a);
+  const hornetAlive = () => hornet && hornet.st !== "fall" && hornet.st !== "rot";
+  const zombieCap = () => (hornet ? 1 : Infinity);   // com o zangão em campo, no máximo 1 zumbi
+
+  function spawnHornet(side) {
+    if (hornet || over.t >= 0) return;
+    hornet = { x: side > 0 ? W + 110 : -110, y: hrnd(...HZ.high), vx: 0, vy: 0, hp: HZ.hp, st: "enter", a: anim("hz_idle"),
+      tx: side > 0 ? W - 130 : 130, ty: hrnd(...HZ.high), wait: hrnd(...HZ.hoverFor), atk: hrnd(...HZ.attackEvery),
+      t: 0, hit: false, ph: Math.random() * 6, fade: 1, face: side > 0 ? -1 : 1 };
+  }
+  const setH = (st, key) => { hornet.st = st; hornet.a = anim(key); hornet.t = 0; hornet.hit = false; };
+  const sideOf = (x) => (x >= L.x ? 1 : -1);
+  const otherSideX = () => {           // ponto do outro lado da Lorena, dentro da tela
+    const s = -sideOf(hornet.x);
+    return Math.max(90, Math.min(W - 90, L.x + s * hrnd(170, 330)));
+  };
+  // move suavemente até (tx, ty) com o zigue-zague de inseto; devolve true ao chegar
+  function flyTo(dt, speed) {
+    const h = hornet, dx = h.tx - h.x, dy = h.ty - h.y, d = Math.hypot(dx, dy);
+    if (d < 4) return true;
+    const sp = Math.min(speed, d * 3.2);
+    h.x += (dx / d) * sp * dt;
+    h.y += (dy / d) * sp * dt + Math.sin(h.t * 9 + h.ph) * 22 * dt;
+    return false;
+  }
+
+  function updateHornet(dt) {
+    if (hornetQ) { hornetQ.t -= dt; if (hornetQ.t <= 0) { const s = hornetQ.side; hornetQ = null; spawnHornet(s); } }
+    const h = hornet; if (!h) return;
+    h.t += dt; h.a.t += dt;
+    if (h.st !== "dive" && h.st !== "bite" && h.st !== "fall" && h.st !== "rot") h.face = h.x > L.x ? -1 : 1;   // sempre de frente para ela
+    const bob = Math.sin(performance.now() / 260 + h.ph) * 0.35;
+    switch (h.st) {
+      case "enter":
+        if (flyTo(dt, HZ.speed * 1.3)) setH("hover", "hz_idle");
+        break;
+      case "hover": {                                    // comportamento base: paira, cruza, desce/sobe
+        h.y += bob;
+        h.wait -= dt; h.atk -= dt;
+        if (h.atk <= 0 && !lorenaDown()) { h.atk = hrnd(...HZ.attackEvery); return Math.random() < 0.6 ? startBite() : startSting(); }
+        if (h.wait <= 0) {
+          const low = Math.abs(h.y - HZ.low) < 30;
+          if (low) { h.tx = h.x + hrnd(-40, 40); h.ty = hrnd(...HZ.high); }            // estava na altura dela: sobe
+          else if (Math.random() < 0.3) { h.tx = h.x + hrnd(-30, 30); h.ty = HZ.low; } // às vezes desce
+          else { h.tx = otherSideX(); h.ty = hrnd(...HZ.high); }                      // cruza para o outro lado
+          h.tx = Math.max(70, Math.min(W - 70, h.tx));
+          setH("move", "hz_idle"); h.wait = hrnd(...HZ.hoverFor);
+        }
+        break;
+      }
+      case "move":
+        h.atk -= dt * 0.5;
+        if (flyTo(dt, HZ.speed)) setH("hover", "hz_idle");
+        break;
+      // ---- mordida: desce até a altura dela e avança em linha reta, atravessando-a ----
+      case "biteAlign":
+        if (flyTo(dt, HZ.speed * 1.4)) { setH("bite", "hz_bite"); h.vx = (L.x >= h.x ? 1 : -1) * HZ.biteSpeed; h.face = Math.sign(h.vx); }
+        break;
+      case "bite":
+        h.x += h.vx * dt;
+        if (!h.hit && Math.abs(h.x - L.x) < 34 && !lorenaDown()) { h.hit = true; damageLorena(1); }
+        if ((h.vx > 0 && h.x > L.x + 170) || (h.vx < 0 && h.x < L.x - 170) || h.x < 40 || h.x > W - 40) {
+          h.tx = Math.max(90, Math.min(W - 90, h.x + Math.sign(h.vx) * 40)); h.ty = hrnd(...HZ.high);
+          setH("move", "hz_idle");
+        }
+        break;
+      // ---- ferroada: prepara num canto alto, mergulha em V passando pela Lorena e sobe do outro lado ----
+      case "stingGo":
+        if (flyTo(dt, HZ.speed * 1.4)) { setH("stingPrep", "hz_prep"); hornet.aim = L.x; }   // premedita: mira onde ela está agora
+        break;
+      case "stingPrep":                                 // telegrafa o ataque (dá tempo de fugir)
+        h.y += bob;
+        if (h.t >= dur("hz_prep") + 0.35) {
+          const s = h.x < L.x ? 1 : -1;
+          // mergulha no ponto mirado durante a preparação; quem sair dali escapa
+          const bx = h.aim;
+          h.v = { x0: h.x, y0: h.y, bx, by: HZ.low + 6, x1: Math.max(80, Math.min(W - 80, 2 * bx - h.x)), y1: hrnd(...HZ.high) };
+          h.face = s; setH("dive", "hz_sting");
+        }
+        break;
+      case "dive": {
+        const T = dur("hz_sting"), u = Math.min(1, h.t / T), v = h.v;
+        // V: desce até (bx, by) na metade do tempo e sobe até (x1, y1)
+        if (u < 0.5) { const e = u / 0.5, ee = e * e; h.x = v.x0 + (v.bx - v.x0) * e; h.y = v.y0 + (v.by - v.y0) * ee; }
+        else { const e = (u - 0.5) / 0.5, ee = 1 - (1 - e) * (1 - e); h.x = v.bx + (v.x1 - v.bx) * e; h.y = v.by + (v.y1 - v.by) * ee; }
+        if (!h.hit && u > 0.42 && u < 0.58 && Math.abs(h.x - L.x) < 40 && !lorenaDown()) { h.hit = true; damageLorena(3); }
+        if (u >= 1) setH("stingEnd", "hz_undo");
+        break;
+      }
+      case "stingEnd":
+        h.y += bob;
+        if (h.t >= dur("hz_undo")) { setH("hover", "hz_idle"); h.wait = hrnd(...HZ.hoverFor); }
+        break;
+      case "hurt":
+        h.x += h.kb * dt; h.kb *= Math.exp(-6 * dt);
+        if (h.t >= dur("hz_dano")) { h.tx = h.x; h.ty = hrnd(...HZ.high); setH("move", "hz_idle"); }
+        break;
+      case "fall": {                                    // morreu: cai girando a animação de queda
+        h.vy += HZ.gravity * dt; h.y += h.vy * dt; h.x += h.vx * dt; h.vx *= Math.exp(-1.5 * dt);
+        const ground = FLOOR - (0.893 - HZ.cy) * HZ.fh * HZ.k;
+        if (h.y >= ground) { h.y = FLOOR - (0.69 - HZ.cy) * HZ.fh * HZ.k; setH("rot", "hz_rot"); }
+        break;
+      }
+      case "rot":                                       // no chão: se decompõe e some
+        if (done(h.a)) { h.fade -= dt * 1.2; if (h.fade <= 0) hornet = null; }
+        break;
+    }
+    if (hornet && h.st !== "fall" && h.st !== "rot") h.x = Math.max(-140, Math.min(W + 140, h.x));
+  }
+  function startBite() {
+    const h = hornet;
+    h.tx = Math.max(70, Math.min(W - 70, h.x)); h.ty = HZ.low;
+    if (Math.abs(h.x - L.x) < 140) h.tx = Math.max(70, Math.min(W - 70, L.x + sideOf(h.x) * 220));
+    setH("biteAlign", "hz_idle");
+  }
+  function startSting() {
+    const h = hornet, s = sideOf(h.x);
+    h.tx = Math.max(90, Math.min(W - 90, L.x + s * hrnd(230, 320))); h.ty = HZ.high[0] - 10;
+    setH("stingGo", "hz_idle");
+  }
+  function damageLorena(n) {
+    if (L.st !== "grab" && L.st !== "dead") setL("hurt", "l_hurt");
+    hurtLorena(n);
+  }
+  // tiro/facada: só acerta quando ele está na altura do corpo dela
+  const hornetHittable = () => hornetAlive() && hornet.y > 300 && hornet.x > -20 && hornet.x < W + 20;
+  function hitHornet() {
+    const h = hornet;
+    h.hp--;
+    if (h.hp <= 0) { h.vx = h.face * -60; h.vy = -60; setH("fall", "hz_fall"); return; }
+    if (h.st === "dive" || h.st === "stingPrep" || h.st === "stingEnd") return;   // ferroada não é interrompida
+    h.kb = (h.x > L.x ? 1 : -1) * 160;
+    setH("hurt", "hz_dano");
+  }
+  function drawHornet() {
+    const h = hornet; if (!h) return;
+    const s = SHEETS[h.a.key]; if (!s.img) return;
+    const w = HZ.fw * HZ.k, hh = HZ.fh * HZ.k;
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, h.fade);
+    ctx.imageSmoothingEnabled = true;
+    ctx.translate(Math.round(h.x), Math.round(h.y));
+    if (h.face < 0) ctx.scale(-1, 1);                    // o desenho olha para a direita
+    ctx.drawImage(s.img, frameOf(h.a) * HZ.fw, 0, HZ.fw, HZ.fh, -w * HZ.cx, -hh * HZ.cy, w, hh);
+    ctx.restore();
+  }
+  function hornetShadow() {
+    const h = hornet; if (!h || h.st === "rot") return;
+    const k = Math.max(0.25, 1 - (FLOOR - h.y) / 360);
+    ctx.fillStyle = `rgba(0,0,0,${0.28 * k})`;
+    ctx.beginPath(); ctx.ellipse(h.x, FLOOR + 1, 34 * k, 6 * k, 0, 0, Math.PI * 2); ctx.fill();
   }
 
   /* ---------- Zumbis ---------- */
@@ -648,7 +830,8 @@
     // remove cadáveres e repõe até a cota de cada lado (nunca excede)
     for (let i = zombies.length - 1; i >= 0; i--) if (zombies[i].fadeOut <= 0) zombies.splice(i, 1);
     const [qL, qR] = WAVES[level()];
-    for (const [side, quota] of [[-1, qL], [1, qR]]) {
+    for (let [side, quota] of [[-1, qL], [1, qR]]) {
+      if (hornet) quota = side > 0 ? 1 : 0;                 // zangão em campo: só 1 zumbi
       const have = zombies.filter((z) => z.from === side).length + spawnQ.filter((q) => q.side === side).length;
       for (let n = have; n < quota; n++) {
         const pend = spawnQ.filter((q) => q.side === side).length;
@@ -658,7 +841,7 @@
     for (let i = spawnQ.length - 1; i >= 0; i--) {
       const q = spawnQ[i];
       q.t -= dt;
-      if (q.t <= 0) { spawnQ.splice(i, 1); spawn(q.side); }
+      if (q.t <= 0) { spawnQ.splice(i, 1); if (zombies.filter(alive).length < zombieCap()) spawn(q.side); }
     }
   }
   function startGrab(z, side) {
@@ -696,6 +879,7 @@
     const shadow = (x) => { ctx.beginPath(); ctx.ellipse(x, FLOOR + 1, 30, 6, 0, 0, Math.PI * 2); ctx.fill(); };
     zombies.forEach((z) => z.st !== "dead" && shadow(z.x));
     shadow(L.x);
+    hornetShadow();
 
     const zSprite = (z) => sprite(z.a.key, frameOf(z.a), z.x, L.x > z.x, Math.max(0, z.fadeOut));
     const behind = zombies.filter((z) => z.st !== "grab").sort((a, b) => (a.st === "dead") - (b.st === "dead") || b.x - a.x);
@@ -703,6 +887,8 @@
     behind.filter((z) => z.st !== "dead").forEach(zSprite);
     sprite(L.a.key, frameOf(L.a), L.x, L.dir < 0);
     zombies.filter((z) => z.st === "grab").forEach(zSprite);   // agarrão sempre na frente dela
+    drawHornet();
+    ctx.imageSmoothingEnabled = false;
 
     hud();
 
@@ -1129,6 +1315,7 @@
     updateZombies(dt);
     updateBug(dt);
     updateHeli(dt);
+    updateHornet(dt);
     soundTick(dt);
     if (over.t >= 0) { over.t += dt; over.fade = Math.min(0.78, over.t / 2.2); }
     draw();
@@ -1271,6 +1458,9 @@
   window.__jogo = { open, close, get state() { return { L, zombies, kills, over }; },
     warn: showWarn, accept: acceptWarn,
     setKills(n) { kills = n; },
+    zangao(side = 1) { spawnHornet(side); },
+    get hornet() { return hornet && { st: hornet.st, x: Math.round(hornet.x), y: Math.round(hornet.y), hp: hornet.hp, face: hornet.face }; },
+    hornetAttack(kind) { if (hornet) kind === "sting" ? startSting() : startBite(); },
     bug() { spawnBug(); },
     heli() { spawnHeli(); },
     get audio() { return { loaded: Object.keys(A.buf), ctx: A.ctx?.state, vol: A.vol, muted: A.muted, plays: A.count, loops: Object.fromEntries(Object.entries(A.loops).map(([k, l]) => [k, +l.cur.toFixed(2)])) }; } };

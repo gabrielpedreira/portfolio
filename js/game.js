@@ -51,10 +51,10 @@
     faceOk: "rosto_bem.png", faceCaution: "rosto_caution.png", faceDanger: "rosto_danger.png" };
 
   const TXT = {
-    pt: { kills: "ZUMBIS", restart: "Recomeçar", loading: "Carregando…", close: "Fechar jogo",
+    pt: { bugs: "INSETOS", kills: "ZUMBIS", restart: "Recomeçar", loading: "Carregando…", close: "Fechar jogo",
           walkR: "anda pra direita", walkL: "anda pra esquerda", shoot: "atira", stab: "facada", menu: "menu (X confirma)", reload: "recarrega", quit: "fecha o jogo",
           rotate: "Gire o celular para jogar", quitBtn: "Fechar", volume: "volume", mute: "Silenciar", unmute: "Ativar som" },
-    en: { kills: "ZOMBIES", restart: "Restart", loading: "Loading…", close: "Close game",
+    en: { bugs: "INSECTS", kills: "ZOMBIES", restart: "Restart", loading: "Loading…", close: "Close game",
           walkR: "walk right", walkL: "walk left", shoot: "shoot", stab: "stab", menu: "menu (X confirms)", reload: "reload", quit: "close the game",
           rotate: "Rotate your phone to play", quitBtn: "Close", volume: "volume", mute: "Mute", unmute: "Unmute" }
   };
@@ -83,6 +83,7 @@
   /* ---------- Som (Web Audio: baixa latência, sons sobrepostos) ---------- */
   const SND_DIR = "assets/sounds/";
   const SOUNDS = {
+    wings: "zangao_asas.mp3", hzBite: "zangao_mordida.mp3", hzSting: "zangao_ferroada.mp3", hzHurt: "zangao_dano.mp3", hzDie: "zangao_morte.mp3",
     amb: "ambiencia.mp3", groan: "grunhido_zumbi.mp3", zdie: "zumbi_morte.mp3", zatk: "zumbi_ataque.mp3", ldie: "lorena_morte.mp3", amb2: "ambiencia_evento.mp3", heli: "helicoptero.mp3",
     stepsL: "passos_lorena.mp3", stepsZ: "passos_zumbi.mp3",
     shot: "tiro_pistola.mp3", empty: "pistola_descarregada.mp3", stab: "facada.mp3", bite: "mordida_zumbi.mp3", reload: "recarga_pistola.mp3", hurt: "lorena_dano.mp3"
@@ -105,7 +106,8 @@
   // mordidas separadas no arquivo — uma a cada dano do agarrão
   const STABS = [[1.38, 1.95], [4.22, 4.79], [7.08, 7.64]];   // golpes separados no arquivo da facada
   const BITES = [[0, 0.79], [1.13, 1.78], [2.43, 2.92], [3.66, 4.44]];
-  const MIX = { stab: 0.9, heli: 0.55, zatk: 0.8, ldie: 0.9, amb2: 0.6, amb: 0.35, groan: 0.55, zdie: 0.7, stepsL: 0.55, stepsZ: 0.5, shot: 0.8, empty: 0.8, bite: 0.9, reload: 0.8, hurt: 0.8 };
+  const LOOP_RANGE = { wings: [0.03, 3.86] };
+  const MIX = { wings: 0.32, hzBite: 0.8, hzSting: 0.85, hzHurt: 0.8, hzDie: 0.85, stab: 0.9, heli: 0.55, zatk: 0.8, ldie: 0.9, amb2: 0.6, amb: 0.35, groan: 0.55, zdie: 0.7, stepsL: 0.55, stepsZ: 0.5, shot: 0.8, empty: 0.8, bite: 0.9, reload: 0.8, hurt: 0.8 };
   const store = {
     get(k) { try { return localStorage.getItem(k); } catch { return null; } },
     set(k, v) { try { localStorage.setItem(k, v); } catch {} }
@@ -177,12 +179,14 @@
       let l = this.loops[k];
       if (!l) {
         const src = this.ctx.createBufferSource(); src.buffer = b; src.loop = true;
+        const lr = LOOP_RANGE[k];                       // pula o enchimento do mp3 no início/fim (sem "buraco" no loop)
+        if (lr) { src.loopStart = lr[0]; src.loopEnd = Math.min(lr[1], b.duration - 0.01); }
         const g = this.ctx.createGain(); g.gain.value = 0;
         let node = src.connect(g);
         let p = null;
         if (this.ctx.createStereoPanner) { p = this.ctx.createStereoPanner(); node = g.connect(p); }
         node.connect(this.master);
-        src.start(this.ctx.currentTime, Math.random() * b.duration * 0.6);
+        src.start(this.ctx.currentTime, lr ? lr[0] : Math.random() * b.duration * 0.6);
         l = this.loops[k] = { src, g, p, cur: -1 };
       }
       const target = MIX[k] * gain;
@@ -374,7 +378,7 @@
     kills = 0;
     spawnQ = [];
     over = { fade: 0, t: -1, shown: false };
-    bug = null; heli = null; hornet = null; hornetQ = null;
+    bug = null; heli = null; hornet = null; hornetQ = null; hornetKills = 0; hzSide = 1;
     for (let i = 0; i < WAVES[0][1]; i++) spawn(1, W + 70 + i * 150);
     restartBtn.hidden = true;
     Object.keys(input).forEach((k) => (input[k] = false));
@@ -477,6 +481,12 @@
     if ((nx - L.x) * mv > 0) { L.x = nx; return true; }
     return false;
   }
+  // troca a animação mantendo o progresso (o tiro/recarga continua do mesmo ponto)
+  function swapAnim(st, key) {
+    const from = SHEETS[L.a.key], to = SHEETS[key];
+    const p = Math.min(0.999, (L.a.t * from.fps) / from.frames);
+    L.st = st; L.a = { key, t: (p * to.frames) / to.fps };
+  }
   const heldDir = () => (input.right ? 1 : 0) - (input.left ? 1 : 0);
   function updateLorena(dt) {
     L.a.t += dt;
@@ -507,16 +517,19 @@
         break;
       }
       case "shoot":
+        if (heldDir() === L.dir && heldDir() !== 0 && !done(L.a)) { swapAnim("shootWalk", "l_shootWalk"); break; }   // voltou a andar: continua andando
         if (!L.fired && frameOf(L.a) >= 3) { L.fired = true; L.ammo--; A.play("shot", { pan: panOf(L.x) * 0.6 }); fire(); }
         if (done(L.a)) setL("idle", "l_idle");      // ciclo completo, nunca interrompido por outro tiro
         break;
       case "shootWalk":                                  // atira andando: segue na direção em que olha
-        if (heldDir() === L.dir) stepLorena(L.dir, dt);
+        if (heldDir() !== L.dir) { swapAnim("shoot", "l_shoot"); break; }   // soltou/virou: termina parada (sem "moonwalk")
+        stepLorena(L.dir, dt);
         if (!L.fired && frameOf(L.a) >= 3) { L.fired = true; L.ammo--; A.play("shot", { pan: panOf(L.x) * 0.6 }); fire(); }
         if (done(L.a)) setL("idle", "l_idle");      // ciclo completo; no quadro seguinte volta a andar se a tecla estiver pressionada
         break;
       case "reloadWalk":                                 // recarrega andando
-        if (heldDir() === L.dir) stepLorena(L.dir, dt);
+        if (heldDir() !== L.dir) { swapAnim("reload", "l_reload"); break; }
+        stepLorena(L.dir, dt);
         if (!L.fired && frameOf(L.a) >= 8) { L.fired = true; A.play("reload", { pan: panOf(L.x) * 0.6 }); }
         if (done(L.a)) { refill(); setL("idle", "l_idle"); }
         input.shootQ = false;
@@ -531,6 +544,7 @@
         input.shootQ = false; input.stab = false;
         break;
       case "reload":
+        if (heldDir() === L.dir && heldDir() !== 0 && !done(L.a)) { swapAnim("reloadWalk", "l_reloadWalk"); break; }
         if (!L.fired && frameOf(L.a) >= 7) { L.fired = true; A.play("reload", { pan: panOf(L.x) * 0.6 }); }   // som no encaixe do pente
         if (done(L.a)) { refill(); setL("idle", "l_idle"); }
         input.shootQ = false;
@@ -590,7 +604,7 @@
     high: [150, 215], low: 384, speed: 210, biteSpeed: 430, gravity: 1300,
     attackEvery: [3.2, 6.0], hoverFor: [1.4, 3.0]
   };
-  let hornet = null, hornetQ = null;
+  let hornet = null, hornetQ = null, hornetKills = 0, hzSide = 1;
   const hrnd = (a, b) => a + Math.random() * (b - a);
   const hornetAlive = () => hornet && hornet.st !== "fall" && hornet.st !== "rot";
   const zombieCap = () => (hornet ? 1 : Infinity);   // com o zangão em campo, no máximo 1 zumbi
@@ -647,7 +661,7 @@
         break;
       // ---- mordida: desce até a altura dela e avança em linha reta, atravessando-a ----
       case "biteAlign":
-        if (flyTo(dt, HZ.speed * 1.4)) { setH("bite", "hz_bite"); h.vx = (L.x >= h.x ? 1 : -1) * HZ.biteSpeed; h.face = Math.sign(h.vx); }
+        if (flyTo(dt, HZ.speed * 1.4)) { A.play("hzBite", { pan: panOf(hornet.x) }); setH("bite", "hz_bite"); h.vx = (L.x >= h.x ? 1 : -1) * HZ.biteSpeed; h.face = Math.sign(h.vx); }
         break;
       case "bite":
         h.x += h.vx * dt;
@@ -659,7 +673,7 @@
         break;
       // ---- ferroada: prepara num canto alto, mergulha em V passando pela Lorena e sobe do outro lado ----
       case "stingGo":
-        if (flyTo(dt, HZ.speed * 1.4)) { setH("stingPrep", "hz_prep"); hornet.aim = L.x; }   // premedita: mira onde ela está agora
+        if (flyTo(dt, HZ.speed * 1.4)) { setH("stingPrep", "hz_prep"); hornet.aim = L.x; A.play("hzSting", { pan: panOf(hornet.x) }); }   // premedita: mira onde ela está agora
         break;
       case "stingPrep":                                 // telegrafa o ataque (dá tempo de fugir)
         h.y += bob;
@@ -720,7 +734,8 @@
   function hitHornet() {
     const h = hornet;
     h.hp--;
-    if (h.hp <= 0) { h.vx = h.face * -60; h.vy = -60; setH("fall", "hz_fall"); return; }
+    if (h.hp <= 0) { h.vx = h.face * -60; h.vy = -60; setH("fall", "hz_fall"); hornetKills++; A.play("hzDie", { pan: panOf(h.x) }); return; }
+    A.play("hzHurt", { pan: panOf(h.x), gap: 0.1 });
     if (h.st === "dive" || h.st === "stingPrep" || h.st === "stingEnd") return;   // ferroada não é interrompida
     h.kb = (h.x > L.x ? 1 : -1) * 160;
     setH("hurt", "hz_dano");
@@ -806,7 +821,7 @@
         case "grab": {
           z.x = L.x + z.side * 26;                        // colado nela, desenhado por cima
           const f = frameOf(z.a);
-          const hits = [4, 8, 12].filter((n) => f >= n).length;
+          const hits = [5, 11].filter((n) => f >= n).length;      // agarrão: 2 de dano
           while (z.dmg < hits && !lorenaDown()) {
             z.dmg++;
             A.play("bite", { seg: BITES[(z.dmg - 1 + z.biteOff) % BITES.length], pan: panOf(L.x) * 0.6 });
@@ -831,7 +846,7 @@
     for (let i = zombies.length - 1; i >= 0; i--) if (zombies[i].fadeOut <= 0) zombies.splice(i, 1);
     const [qL, qR] = WAVES[level()];
     for (let [side, quota] of [[-1, qL], [1, qR]]) {
-      if (hornet) quota = side > 0 ? 1 : 0;                 // zangão em campo: só 1 zumbi
+      if (hornet) quota = side === hzSide ? 1 : 0;          // zangão em campo: só 1 zumbi, alternando os lados
       const have = zombies.filter((z) => z.from === side).length + spawnQ.filter((q) => q.side === side).length;
       for (let n = have; n < quota; n++) {
         const pend = spawnQ.filter((q) => q.side === side).length;
@@ -841,7 +856,7 @@
     for (let i = spawnQ.length - 1; i >= 0; i--) {
       const q = spawnQ[i];
       q.t -= dt;
-      if (q.t <= 0) { spawnQ.splice(i, 1); if (zombies.filter(alive).length < zombieCap()) spawn(q.side); }
+      if (q.t <= 0) { spawnQ.splice(i, 1); if (zombies.filter(alive).length < zombieCap()) { spawn(q.side); if (hornet) hzSide = -q.side; } }
     }
   }
   function startGrab(z, side) {
@@ -938,6 +953,12 @@
     ctx.fillStyle = "#e8e8ea";
     ctx.fillText(label, 26, 21);
     for (let i = 0; i < skulls; i++) skull(26 + tw + 10 + i * 26, 19);
+    // insetos abatidos: só aparece depois do primeiro (não entrega que eles existem)
+    if (hornetKills > 0) {
+      const l2 = `${T("bugs")} ${hornetKills}`, tw2 = ctx.measureText(l2).width;
+      ctx.fillStyle = "rgba(0,0,0,.55)"; ctx.fillRect(14, 54, tw2 + 24, 36);
+      ctx.fillStyle = "#e8e8ea"; ctx.fillText(l2, 26, 61);
+    }
 
     // vida (canto superior direito): 9 blocos — verde, amarelo a partir de 6, vermelho a partir de 3 —
     // e o rosto da Lorena à direita da barra (bem / caution / danger)
@@ -995,8 +1016,12 @@
                                             en: ["Padlock key", "A small key that opens the padlock on the parking lot gate."] },
     chave_grifo: { img: "chave_grifo.webp", pt: ["Chave de grifo", "Talvez isso possa servir para abrir algo."],
                                             en: ["Pipe wrench", "Maybe this could be used to open something."] },
-    kit_med:     { img: "kit_med.webp",     pt: ["Kit médico pequeno", "Kit médico básico. Recupera pouca energia, mas pode salvar sua vida!"],
-                                            en: ["Small medkit", "Basic first-aid kit. Restores a little health, but it could save your life!"] }
+    kit_med:     { img: "kit_med.webp",     pt: ["Kit médico pequeno", "Kit médico básico. Recupera 2 blocos de vida. Combine dois para montar um kit médio."],
+                                            en: ["Small medkit", "Basic first-aid kit. Restores 2 health blocks. Combine two to make a medium kit."] },
+    kit_med_m:   { img: "kit_med_m.webp",   pt: ["Kit médico médio", "Recupera 5 blocos de vida. Combine com um kit pequeno para montar um kit grande."],
+                                            en: ["Medium medkit", "Restores 5 health blocks. Combine with a small kit to make a large one."] },
+    kit_med_g:   { img: "kit_med_g.webp",   pt: ["Kit médico grande", "Kit completo: recupera toda a vida."],
+                                            en: ["Large medkit", "Full kit: restores all your health."] }
   };
   const FILES = [
     { pt: ["Mensagem de Nicolas", "Irmã, preciso que você venha até o laboratório. Acredito que descobri algo e preciso de ajuda. Seja rápida!"],
@@ -1006,19 +1031,21 @@
   ];
   const MT = {
     pt: { inUse: "Este item já está em uso.", noNeed: "Você não precisa usar este item agora.", noCombine: "Você não pode combinar esse item.",
-          loaded: "Esta arma está carregada.", reloaded: "Pistola recarregada.", healed: "Você se sente um pouco melhor.",
+          loaded: "Esta arma está carregada.", reloaded: "Pistola recarregada.", healed: "Você se sente um pouco melhor.", combinedMed: "Você combinou os kits médicos.",
           pick: "Combinar com qual item?", noAmmo: "Não há munição para recarregar.", select: "Selecione um item.",
           keys: "Setas: mover · X: confirmar · W: voltar", use: "Usar", combine: "Combinar", check: "Checar",
           fine: "BEM", caution: "CUIDADO", danger: "PERIGO", mapBack: "X ou W para voltar", files: "Arquivos" },
     en: { inUse: "This item is already in use.", noNeed: "You don't need to use this item right now.", noCombine: "You can't combine this item.",
-          loaded: "This gun is already loaded.", reloaded: "Pistol reloaded.", healed: "You feel a little better.",
+          loaded: "This gun is already loaded.", reloaded: "Pistol reloaded.", healed: "You feel a little better.", combinedMed: "You combined the medkits.",
           pick: "Combine with which item?", noAmmo: "There's no ammo to reload.", select: "Select an item.",
           keys: "Arrows: move · X: confirm · W: back", use: "Use", combine: "Combine", check: "Check",
           fine: "FINE", caution: "CAUTION", danger: "DANGER", mapBack: "X or W to go back", files: "Files" }
   };
   const mt = (k) => MT[lang()][k];
   const itemTx = (id) => ITEMS[id][lang()];
-  const START_INV = ["pistola", "municao", "faca", "chave_comum", "chave_grifo", "kit_med", "kit_med", null];
+  const START_INV = ["pistola", "municao", "faca", "chave_comum", "chave_grifo", "kit_med", "kit_med", "kit_med"];
+  const HEAL = { kit_med: 2, kit_med_m: 5, kit_med_g: 9 };
+  const MED_COMBO = { "kit_med+kit_med": "kit_med_m", "kit_med+kit_med_m": "kit_med_g" };
   let inv = START_INV.slice();
   const M = { open: false, view: "items", sub: null, subIdx: 0, combine: null, msgT: 0, el: null };
 
@@ -1230,22 +1257,28 @@
       box.querySelector("img").src = MG + ITEMS[id].img; box.querySelector("h3").textContent = name; box.querySelector("p").textContent = desc;
     } else if (o === "use") {
       if (id === "pistola" || id === "faca") return say("inUse");
-      if (id === "kit_med") {
+      if (HEAL[id]) {
         if (L.life >= MAX_LIFE) return say("noNeed");
-        L.life = Math.min(MAX_LIFE, L.life + 3);
+        L.life = Math.min(MAX_LIFE, L.life + HEAL[id]);
         inv[i] = null; renderMenu(); return say("healed");
       }
       say("noNeed");
     } else if (o === "combine") {
-      if (id !== "pistola" && id !== "municao") return say("noCombine");
+      if (id !== "pistola" && id !== "municao" && id !== "kit_med" && id !== "kit_med_m") return say("noCombine");
       M.combine = i; renderMenu();
       q(".gm-hint").textContent = mt("pick");
     }
   }
   function finishCombine(j) {
-    const a = inv[M.combine], b = inv[j];
+    const i0 = M.combine, a = inv[M.combine], b = inv[j];
+    if (i0 === j) { M.combine = null; renderMenu(); clearMain(); return say("noCombine"); }
     M.combine = null; renderMenu(); clearMain();
     const pair = [a, b].sort().join("+");
+    if (MED_COMBO[pair] && M.combine !== j) {               // kits médicos: juntam num kit maior
+      const keep = Math.min(i0, j);
+      inv[keep] = MED_COMBO[pair]; inv[Math.max(i0, j)] = null;
+      renderMenu(); return say("combinedMed");
+    }
     if (pair !== "municao+pistola") return say("noCombine");
     if (L.ammo >= MAX_AMMO) return say("loaded");
     if (L.reserve <= 0) return say("noAmmo");
@@ -1283,6 +1316,11 @@
   function soundTick(dt) {
     if (!A.ctx) return;
     A.loop("amb", 1);
+    // bater de asas do zangão: o tempo todo enquanto ele está vivo em cena (inclusive atacando)
+    if (hornet || A.loops.wings) {
+      const live = hornetAlive();
+      A.loop("wings", live ? 0.55 + 0.45 * Math.max(0, 1 - Math.abs(hornet.x - L.x) / 700) : 0, live ? panOf(hornet.x) : 0);
+    }
     // som do helicóptero: cresce ao se aproximar do centro e some ao sair
     if (heli || A.loops.heli) {
       const g = heli ? Math.max(0, 1 - Math.abs(heli.x - W / 2) / (W / 2 + 140)) : 0;

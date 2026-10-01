@@ -372,7 +372,7 @@
   const dur = (key) => SHEETS[key].frames / SHEETS[key].fps;
 
   function reset() {
-    L = { x: 110, dir: 1, st: "idle", a: anim("l_idle"), ammo: MAX_AMMO, reserve: 150, life: MAX_LIFE, fired: false, grabbedBy: null };
+    L = { x: 110, dir: 1, st: "idle", a: anim("l_idle"), ammo: MAX_AMMO, reserve: 250, life: MAX_LIFE, fired: false, grabbedBy: null };
     inv = START_INV.slice();
     zombies = [];
     kills = 0;
@@ -1445,14 +1445,14 @@
     pt: {
       p1: "Este é um pequeno minigame desenvolvido para apresentar um dos inimigos do jogo, além de demonstrar algumas de suas mecânicas e animações.",
       p2: "A versão final contará com muito mais elementos: diferentes inimigos, ações, mecânicas e interações com o cenário. Este minigame é apenas uma pequena amostra do que está por vir.",
-      p3: "Por enquanto, seu único objetivo é sobreviver.<br>Você consegue chegar a 25 zumbis abatidos?",
+      p3: "Por enquanto, seu único objetivo é sobreviver.<br>Você consegue chegar a 50 zumbis abatidos?",
       p4: "Então aceite o desafio e veja até onde consegue chegar!",
       ok: "Aceitar"
     },
     en: {
       p1: "This is a small minigame made to introduce one of the game's enemies and to show off some of its mechanics and animations.",
       p2: "The final version will have much more: different enemies, actions, mechanics and interactions with the environment. This minigame is just a small taste of what's coming.",
-      p3: "For now, your only goal is to survive.<br>Can you reach 25 zombies killed?",
+      p3: "For now, your only goal is to survive.<br>Can you reach 50 zombies killed?",
       p4: "Then accept the challenge and see how far you can go!",
       ok: "Accept"
     }

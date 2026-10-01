@@ -36,6 +36,13 @@
     z_hurt:   { src: "zumbi_dano.png",          fps: 12 },
     z_dead:   { src: "zumbi_morte.png",         fps: 12 },
     over:     { src: "game_over.png",           fps: 12 },
+    e_idle:   { src: "emergente_idle.png",      fps: 8,  loop: true, fw: 128, ax: 64 },
+    e_walk:   { src: "emergente_andando.png",   fps: 8,  loop: true, fw: 128, ax: 64 },
+    e_emerge: { src: "emergente_emergindo.png", fps: 8,  fw: 128, ax: 64 },
+    e_atk1:   { src: "emergente_ataque1.png",   fps: 13, fw: 188, ax: 114 },
+    e_atk2:   { src: "emergente_ataque2.png",   fps: 10, fw: 188, ax: 114 },
+    e_hurt:   { src: "emergente_dano.png",      fps: 11, fw: 142, ax: 78 },
+    e_dead:   { src: "emergente_morte.png",     fps: 11, fw: 157, ax: 93 },
     hz_idle:  { src: "zangao_idle.webp",      fps: 10, loop: true, fw: 258 },
     hz_bite:  { src: "zangao_mordida.webp",   fps: 15, loop: true, fw: 258 },
     hz_prep:  { src: "zangao_prep.webp",      fps: 15, fw: 258 },
@@ -83,6 +90,7 @@
   /* ---------- Som (Web Audio: baixa latência, sons sobrepostos) ---------- */
   const SND_DIR = "assets/sounds/";
   const SOUNDS = {
+    emWalk: "emergente_vagando.mp3", emRise: "emergente_emergindo.mp3", emAtk1: "emergente_ataque1.mp3", emAtk2: "emergente_ataque2.mp3", emHurt: "emergente_dano.mp3", emDie: "emergente_morte.mp3",
     wings: "zangao_asas.mp3", hzBite: "zangao_mordida.mp3", hzSting: "zangao_ferroada.mp3", hzHurt: "zangao_dano.mp3", hzDie: "zangao_morte.mp3",
     amb: "ambiencia.mp3", groan: "grunhido_zumbi.mp3", zdie: "zumbi_morte.mp3", zatk: "zumbi_ataque.mp3", ldie: "lorena_morte.mp3", amb2: "ambiencia_evento.mp3", heli: "helicoptero.mp3",
     stepsL: "passos_lorena.mp3", stepsZ: "passos_zumbi.mp3",
@@ -106,8 +114,8 @@
   // mordidas separadas no arquivo — uma a cada dano do agarrão
   const STABS = [[1.38, 1.95], [4.22, 4.79], [7.08, 7.64]];   // golpes separados no arquivo da facada
   const BITES = [[0, 0.79], [1.13, 1.78], [2.43, 2.92], [3.66, 4.44]];
-  const LOOP_RANGE = { wings: [0.03, 3.86] };
-  const MIX = { wings: 0.32, hzBite: 0.8, hzSting: 0.85, hzHurt: 0.8, hzDie: 0.85, stab: 0.9, heli: 0.55, zatk: 0.8, ldie: 0.9, amb2: 0.6, amb: 0.35, groan: 0.55, zdie: 0.7, stepsL: 0.55, stepsZ: 0.5, shot: 0.8, empty: 0.8, bite: 0.9, reload: 0.8, hurt: 0.8 };
+  const LOOP_RANGE = { wings: [0.03, 3.86], emWalk: [0.03, 40.85] };
+  const MIX = { emWalk: 0.5, emRise: 0.85, emAtk1: 0.8, emAtk2: 0.75, emHurt: 0.8, emDie: 0.85, wings: 0.32, hzBite: 0.8, hzSting: 0.85, hzHurt: 0.8, hzDie: 0.85, stab: 0.9, heli: 0.55, zatk: 0.8, ldie: 0.9, amb2: 0.6, amb: 0.35, groan: 0.55, zdie: 0.7, stepsL: 0.55, stepsZ: 0.5, shot: 0.8, empty: 0.8, bite: 0.9, reload: 0.8, hurt: 0.8 };
   const store = {
     get(k) { try { return localStorage.getItem(k); } catch { return null; } },
     set(k, v) { try { localStorage.setItem(k, v); } catch {} }
@@ -393,7 +401,8 @@
     zombies[zombies.length - 1].a.t = Math.random();
   }
   const setL = (st, key) => { L.st = st; L.a = anim(key); L.fired = false; L.hit = false; };
-  const setZ = (z, st, key) => { z.st = st; z.a = anim(key); z.hitDone = false; };
+  const Z2E = { z_walk: "e_walk", z_idle: "e_idle", z_hurt: "e_hurt", z_dead: "e_dead", z_attack: "e_atk1" };
+  const setZ = (z, st, key) => { z.st = st; z.a = anim(z.em ? (Z2E[key] || key) : key); z.hitDone = false; z.sip = 0; };
   const alive = (z) => z.st !== "dead";
   const lorenaDown = () => L.st === "dead";
 
@@ -562,14 +571,24 @@
   }
   function hitZombie(best) {
     best.hp--;
-    if (best.hp <= 0) { setZ(best, "dead", "z_dead"); kills++; A.play("zdie", { gain: nearGain(best.x), pan: panOf(best.x) }); milestones(); }
-    else { setZ(best, "hurt", "z_hurt"); groan(best, false, 0.25); best.cool = Math.max(best.cool, 0.25); }
+    if (best.hp <= 0 && !best.em && Math.random() < EMERGE_CHANCE) {      // 2 em cada 10 zumbis viram emergentes
+      best.em = true; best.hp = EM_HP; best.speed *= 0.85;
+      setZ(best, "emerge", "e_emerge"); A.play("emRise", { gain: nearGain(best.x), pan: panOf(best.x) });
+      return;
+    }
+    if (best.hp <= 0) {
+      setZ(best, "dead", "z_dead"); kills++; milestones();
+      A.play(best.em ? "emDie" : "zdie", { gain: nearGain(best.x), pan: panOf(best.x) });
+    } else {
+      setZ(best, "hurt", "z_hurt"); best.cool = Math.max(best.cool, 0.25);
+      if (best.em) A.play("emHurt", { gain: nearGain(best.x), pan: panOf(best.x), gap: 0.1 }); else groan(best, false, 0.25);
+    }
   }
   // golpe corpo a corpo: acerta o zumbi mais próximo à frente, ao alcance da faca
   function stab() {
     let best = null, bd = 1e9;
     for (const z of zombies) {
-      if (!alive(z) || z.st === "grab") continue;
+      if (!alive(z) || z.st === "grab" || z.st === "emerge") continue;
       const d = (z.x - L.x) * L.dir;
       if (d > -10 && d <= STOP + 24 && d < bd) { bd = d; best = z; }
     }
@@ -582,7 +601,7 @@
   function fire() {
     let best = null, bd = 1e9;
     for (const z of zombies) {
-      if (!alive(z) || z.st === "grab") continue;
+      if (!alive(z) || z.st === "grab" || z.st === "emerge") continue;
       if (z.x < -20 || z.x > W + 20) continue;
       const d = (z.x - L.x) * L.dir;
       if (d > -10 && d < bd) { bd = d; best = z; }
@@ -761,12 +780,21 @@
 
   /* ---------- Zumbis ---------- */
   const STOP = 58, GAP = 46;
+  // emergente: o verme alcança mais longe, então ele para mais distante
+  const EMERGE_CHANCE = 0.2, EM_HP = 5, STOP_EM = STOP + 44;
+  const stopOf = (z) => (z.em ? STOP_EM : STOP);
+  const SIPS = [12, 18, 24, 30];                           // goles do ataque 2 (1 de dano cada)
   function updateZombies(dt) {
     const idleCount = zombies.filter((z) => z.st === "idle").length;
     let grabbing = zombies.some((z) => z.st === "grab");
     // o da frente ataca quando pode; retorna true se atacou
     const tryAttack = (z, side) => {
       if (rank.get(z) !== 0 || z.cool > 0 || lorenaDown() || L.st === "grab") return false;
+      if (z.em) {                                           // emergente: chicotada (60%) ou sugar sangue (40%)
+        if (Math.random() < 0.6) { setZ(z, "attack", "e_atk1"); A.play("emAtk1", { gain: nearGain(z.x), pan: panOf(z.x) }); }
+        else { setZ(z, "drain", "e_atk2"); A.play("emAtk2", { gain: nearGain(z.x), pan: panOf(z.x) }); }
+        return true;
+      }
       const canGrab = !grabbing && L.st !== "hurt";
       if (canGrab && Math.random() < 0.28) { startGrab(z, side); grabbing = true; }
       else { setZ(z, "attack", "z_attack"); groan(z, false, 0.3); }
@@ -783,7 +811,7 @@
       z.a.t += dt;
       const side = Math.sign(z.x - L.x) || 1;
       const dist = Math.abs(z.x - L.x);
-      const target = STOP + (rank.get(z) || 0) * GAP;
+      const target = stopOf(z) + (rank.get(z) || 0) * GAP;
       z.cool -= dt;
       switch (z.st) {
         case "walk": {
@@ -808,10 +836,10 @@
           if (z.idleFor <= 0 || dist <= target + 1) setZ(z, "walk", "z_walk");
           break;
         case "attack":
-          if (!z.hitDone && frameOf(z.a) >= 4) {
+          if (!z.hitDone && frameOf(z.a) >= (z.em ? 8 : 4)) {
             z.hitDone = true;
-            A.play("zatk", { gain: nearGain(z.x), pan: panOf(z.x) });
-            if (dist <= STOP + 14 && !lorenaDown() && L.st !== "grab") {
+            if (!z.em) A.play("zatk", { gain: nearGain(z.x), pan: panOf(z.x) });
+            if (dist <= stopOf(z) + 14 && !lorenaDown() && L.st !== "grab") {
               if (L.st === "reload" || L.st === "shoot" || L.st === "empty" || L.st === "idle" || L.st === "walk" || L.st === "hurt") setL("hurt", "l_hurt");
               hurtLorena(1);
             }
@@ -837,6 +865,23 @@
         case "hurt":
           if (done(z.a)) { setZ(z, "walk", "z_walk"); z.cool = Math.max(z.cool, 0.3); }
           break;
+        case "emerge":                                     // o verme sai do corpo do zumbi
+          if (done(z.a)) { setZ(z, "walk", "z_walk"); z.cool = 0.6; }
+          break;
+        case "drain": {                                    // agarra com o verme e suga: 1 de dano a cada gole
+          const f = frameOf(z.a);
+          const reach = dist <= STOP_EM + 20 && !lorenaDown();
+          if (!reach && f >= 9) { setZ(z, "walk", "z_walk"); z.cool = 0.8; break; }   // ela fugiu do alcance
+          while (z.sip < SIPS.length && f >= SIPS[z.sip]) {
+            z.sip++;
+            if (reach && L.st !== "grab") {
+              if (L.st !== "dead") setL("hurt", "l_hurt");
+              hurtLorena(1);
+            }
+          }
+          if (done(z.a)) { setZ(z, "walk", "z_walk"); z.cool = 0.9 + Math.random() * 0.8; }
+          break;
+        }
         case "dead":
           if (done(z.a)) z.fadeOut -= dt * 1.6;
           break;
@@ -871,12 +916,13 @@
   /* ---------- desenho ---------- */
   function sprite(key, f, x, flip, alpha = 1) {
     const s = SHEETS[key]; if (!s.img) return;
-    const w = FR * S, h = FR * S;
+    const fw = s.fw || FR, ax = s.ax ?? fw / 2;            // âncora = costas do corpo alinhadas com o zumbi comum
+    const w = fw * S, h = FR * S;
     ctx.save();
     ctx.globalAlpha = alpha;
     ctx.translate(Math.round(x), FLOOR);
     if (flip) ctx.scale(-1, 1);
-    ctx.drawImage(s.img, f * FR, 0, FR, FR, -w / 2, -h + 3 * S, w, h);
+    ctx.drawImage(s.img, f * fw, 0, fw, FR, -ax * S, -h + 3 * S, w, h);
     ctx.restore();
   }
   function draw() {
@@ -1316,6 +1362,12 @@
   function soundTick(dt) {
     if (!A.ctx) return;
     A.loop("amb", 1);
+    // emergente parado/andando: grunhidos contínuos (o mesmo som serve para as duas ações)
+    {
+      const ems = zombies.filter((z) => z.em && (z.st === "walk" || z.st === "idle" || z.st === "queue") && !offScreen(z.x));
+      const near = ems.reduce((m, z) => (Math.abs(z.x - L.x) < Math.abs(m.x - L.x) ? z : m), ems[0] || { x: 1e9 });
+      if (ems.length || A.loops.emWalk) A.loop("emWalk", ems.length ? nearGain(near.x) : 0, ems.length ? panOf(near.x) : 0);
+    }
     // bater de asas do zangão: o tempo todo enquanto ele está vivo em cena (inclusive atacando)
     if (hornet || A.loops.wings) {
       const live = hornetAlive();
@@ -1339,7 +1391,7 @@
     for (const z of zombies) {
       if (!alive(z) || offScreen(z.x)) continue;
       z.groanIn = (z.groanIn ?? 1 + Math.random() * 4) - dt;
-      if (z.groanIn <= 0) { z.groanIn = 3.5 + Math.random() * 5; if (z.st === "walk" || z.st === "idle" || z.st === "queue") groan(z, false, 1.2); }
+      if (z.groanIn <= 0) { z.groanIn = 3.5 + Math.random() * 5; if (!z.em && z.st === "walk" || z.st === "idle" || z.st === "queue") groan(z, false, 1.2); }
     }
   }
   function tick(now) {
@@ -1496,6 +1548,7 @@
   window.__jogo = { open, close, get state() { return { L, zombies, kills, over }; },
     warn: showWarn, accept: acceptWarn,
     setKills(n) { kills = n; },
+    emergente() { const z = zombies.find((q) => alive(q) && !q.em && q.x > 0 && q.x < W); if (z) { z.hp = 1; const c = Math.random; Math.random = () => 0; hitZombie(z); Math.random = c; } return !!z; },
     zangao(side = 1) { spawnHornet(side); },
     get hornet() { return hornet && { st: hornet.st, x: Math.round(hornet.x), y: Math.round(hornet.y), hp: hornet.hp, face: hornet.face }; },
     hornetAttack(kind) { if (hornet) kind === "sting" ? startSting() : startBite(); },

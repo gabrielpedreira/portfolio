@@ -775,8 +775,11 @@
     sheets: {
       idle: { src: S + "mosca_idle.webp", n: 43, cols: 8, fw: 285, fh: 326, cx: 142, cy: 167, fps: 12 },
       walk: { src: S + "mosca_walk.webp", n: 8,  cols: 8, fw: 286, fh: 320, cx: 144, cy: 161, fps: 21 },
-      fly:  { src: S + "mosca_fly.webp",  n: 10, cols: 8, fw: 286, fh: 270, cx: 143, cy: 135, fps: 85 }
+      fly:  { src: S + "mosca_fly.webp",  n: 10, cols: 8, fw: 286, fh: 270, cx: 143, cy: 135, fps: 85 },
+      splat: { src: S + "mosca_splat.webp", n: 4,  cols: 4, fw: 209, fh: 246, cx: 104.2, cy: 122.6, fps: 5 },              // esmagada
+      gone:  { src: S + "mosca_gone.webp",  n: 12, cols: 8, fw: 209, fh: 246, cx: 104.2, cy: 122.6, fps: 6, loop: false }  // sumindo na limpeza
     },
+    squash: 1 / 7,               // chance de o mata-moscas acertar (a maioria foge voando)
     morta: { src: S + "mosca_morta.webp", w: 178, h: 296 }
   };
   if (params.has("mosca")) FLY.first = [Number(params.get("mosca")) * 1000 || 3000, Number(params.get("mosca")) * 1000 || 3000];
@@ -799,6 +802,7 @@
       dir: -from, tilt: 0, rot: 0, wait: 0, darts: 0, dist: 0, life: rnd(...FLY.life), frozen: false,
       chase: Math.random() < FLY.webChase, ph: rnd(0, 6) };
   }
+  function vanishFly() { fly.st = "gone"; flyAnim("gone"); }
   function flyAnim(a) { if (fly.a !== a) { fly.a = a; fly.f = 0; fly.ft = 0; } }
   function flyAway(fast) {
     fly.st = "out"; flyAnim("fly"); fly.fast = !!fast;
@@ -821,7 +825,7 @@
     }
     const sh = FLY.sheets[fly.a];
     fly.ft += dt; fly.t += dt;
-    while (fly.ft >= 1 / sh.fps) { fly.ft -= 1 / sh.fps; fly.f = (fly.f + 1) % sh.n; }
+    while (fly.ft >= 1 / sh.fps) { fly.ft -= 1 / sh.fps; fly.f = sh.loop === false ? Math.min(sh.n - 1, fly.f + 1) : (fly.f + 1) % sh.n; }
     if (fly.frozen && (fly.st === "walk" || fly.st === "pause")) { fly.st = "idle"; flyAnim("idle"); }
     switch (fly.st) {
       case "in": {                                                   // chega voando e pousa
@@ -856,6 +860,13 @@
       case "pause":
         fly.wait -= dt;
         if (fly.wait <= 0) startDart();
+        break;
+      case "splat":                                                   // esmagada: espera a faxina (ou some sozinha)
+        fly.wait -= dt;
+        if (fly.wait <= 0 && !(hunt && hunt.kind === "clean")) vanishFly();
+        break;
+      case "gone":
+        if (fly.f >= FLY.sheets.gone.n - 1) { fly.fade = (fly.fade ?? 1) - dt * 3; if (fly.fade <= 0) { fly = null; flyWait = rnd(...FLY.every); } }
         break;
       case "out":                                                     // vai embora voando
         fly.vx += fly.dir * (fly.fast ? 3500 : 900) * dt; fly.vy -= 140 * dt;
@@ -998,7 +1009,8 @@
   // a aranha vê um inseto? (os dois na mesma tela)
   function maybeHunt() {
     if (hunt) return;
-    if (bug && bug.st === "splat") { maybeClean(); return; }          // sujeira primeiro
+    if (bug && bug.st === "splat") { maybeClean(bug); return; }       // sujeira primeiro
+    if (fly && fly.st === "splat") { maybeClean(fly); return; }
     let kind = null, prey = null;
     if (fly && ["idle", "walk", "pause"].includes(fly.st) && onScreen(fly.y)) { kind = "fly"; prey = fly; }
     else if (bug && ["walk", "idle"].includes(bug.st) && onScreen(bug.y) && bug.x > 30 && bug.x < viewW - 30) { kind = "bug"; prey = bug; }
@@ -1014,12 +1026,12 @@
       leaveWeb(Object.assign(h, { afterClimb: startHunt }));
     }
   }
-  function maybeClean() {
+  function maybeClean(mess) {
     if (onWall()) {
       if (exiting || steal) return;
-      hunt = { kind: "clean", prey: bug };
+      hunt = { kind: "clean", prey: mess };
       cleanLeave();
-    } else if (webFree()) leaveWeb({ kind: "clean", prey: bug, afterClimb: cleanAway });
+    } else if (webFree()) leaveWeb({ kind: "clean", prey: mess, afterClimb: cleanAway });
   }
 
   // na teia: larga o símbolo (se estiver com ele) e sobe até sumir da tela
@@ -1160,12 +1172,13 @@
       if (moveTo(hunt.P.x, hunt.P.y, CONFIG.wallSpeed * 1.2, dt, true)) {
         flipRot(); play("limpando");
         hunt.phase = "clean"; hunt.t = 0;
-        if (p.st === "splat") vanishBug();                            // a sujeira some do meio para fora junto com a limpeza
+        if (p.st === "splat") (p === bug ? vanishBug : vanishFly)();  // a sujeira some do meio para fora junto com a limpeza
       }
     } else if (hunt.phase === "clean") {
       const per = { x: Math.cos(rot), y: Math.sin(rot) }, wig = Math.sin(hunt.t * 6) * 5 * scale * 2;   // esfrega de um lado para o outro
       wx = hunt.P.x + per.x * wig; wy = hunt.P.y + per.y * wig;
-      if (hunt.t > BUG.sheets.gone.n / BUG.sheets.gone.fps + 0.5) {
+      const g = (p === bug ? BUG : FLY).sheets.gone;
+      if (hunt.t > g.n / g.fps + 0.5) {
         flipRot(); play("pano");
         const off = 260 * scale;
         hunt.tx = wx < viewW / 2 ? -off : viewW + off; hunt.ty = wy + rnd(-120, 120);
@@ -1220,9 +1233,12 @@
     return null;
   }
   function swatHit(tgt) {
-    if (tgt === "fly") {                                              // rápida demais: sempre escapa
+    if (tgt === "fly") {                                              // quase sempre escapa voando
       if (hunt && hunt.prey === fly) abortHunt();
       fly.frozen = false; flyAway(true);
+    } else if (tgt === "flySplat") {                                  // 1 em 7: esmagada
+      if (hunt && hunt.prey === fly) abortHunt();
+      fly.frozen = false; fly.st = "splat"; flyAnim("splat"); fly.wait = 12;
     } else if (tgt === "bug") {                                       // esmagado
       if (hunt && hunt.prey === bug) abortHunt();
       bug.st = "splat"; bugAnim("splat"); bug.wait = 12;
@@ -1244,7 +1260,10 @@
       { transform: "rotate(-24deg) scale(1.02)", offset: 0.75 },
       { transform: "rotate(-22deg) scale(1)" }
     ], { duration: 240, easing: "ease-out" });
-    if (tgt === "bug") setTimeout(() => bug && ["walk", "idle", "flee", "tired", "out"].includes(bug.st) && swatHit("bug"), 90);   // no impacto
+    if (tgt === "fly" && ["idle", "walk", "pause"].includes(fly.st) && Math.random() < FLY.squash) {   // pousada e sem sorte
+      fly.frozen = true;                                              // não sai do lugar até a batida
+      setTimeout(() => fly && ["idle", "walk", "pause"].includes(fly.st) && swatHit("flySplat"), 90);
+    } else if (tgt === "bug") setTimeout(() => bug && ["walk", "idle", "flee", "tired", "out"].includes(bug.st) && swatHit("bug"), 90);   // no impacto
     else swatHit(tgt);                                                // mosca e aranha fogem antes da batida
   }, true);
   addEventListener("click", (e) => { if (swallowClick) { e.preventDefault(); e.stopPropagation(); swallowClick = false; } }, true);
@@ -1258,6 +1277,7 @@
   window.__besouro = (chase) => { if (!bug) spawnBug(); if (chase !== undefined) bug.chase = !!chase; return bug && bug.st; };
   window.__besouroEstado = () => ({ bug: bug && { st: bug.st, x: Math.round(bug.x), y: Math.round(bug.y), rot: +bug.rot.toFixed(2) },
     hunt: hunt && hunt.kind + ":" + hunt.phase, mode, anim, wx: Math.round(wx), wy: Math.round(wy) });
+  window.__esmagarMosca = () => { if (fly) swatHit("flySplat"); return fly && fly.st; };
   window.__esmagar = () => { if (bug) swatHit("bug"); return bug && bug.st; };
   function drawFly() {
     const show = !!fly && fly.st !== "caught" && layer.classList.contains("is-on") && !!flyImgs[fly.a];
@@ -1274,6 +1294,7 @@
     fctx.clearRect(0, 0, flyCanvas.width, flyCanvas.height);
     const f = fly.f % sh.n;
     fctx.drawImage(flyImgs[fly.a], (f % sh.cols) * sh.fw, ((f / sh.cols) | 0) * sh.fh, sh.fw, sh.fh, 0, 0, sh.fw * s * dpr, sh.fh * s * dpr);
+    flyCanvas.style.opacity = Math.max(0, fly.fade ?? 1);
     const side = fly.a === "fly";
     flyCanvas.style.transformOrigin = `${sh.cx * s}px ${sh.cy * s}px`;
     flyCanvas.style.transform = `translate(${fly.x - sh.cx * s}px, ${fly.y - window.scrollY - sh.cy * s}px) ` +

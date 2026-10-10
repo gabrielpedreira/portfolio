@@ -1286,10 +1286,10 @@
      Ela sai da tela, volta com o pano e anda pela página APAGANDO LETRAS no ponto onde está;
      sobe e picha o rosto do desenvolvedor (a foto pichada aparece por cima aos poucos) e faz as
      4 pichações em lugares diferentes. Para quando usou todas, pichou o rosto e apagou até 30% do texto.
-     Depois sai, espera ~7 s, volta com o pano e limpa tudo (pichações, insetos esmagados, rosto);
+     Depois sai, deixa a bagunça por ~15 s (parece que não volta mais), volta com o pano e limpa tudo (pichações, insetos esmagados, rosto);
      o texto reaparece aos poucos. Alguns segundos depois volta ao normal.
      Durante a fúria ela não caça nem limpa. Depuração: window.__furia() */
-  const RAGE = { swats: 10, eraseMax: 0.3, eraseRate: 30, eraseCap: 22, gk: 1.5, waitBack: 7 };
+  const RAGE = { swats: 10, eraseMax: 0.3, eraseRate: 30, eraseCap: 22, gk: 1.5, waitBack: 15 };
   const PIX = [[314, 316], [231, 241], [237, 198], [565, 401]].map(([w, h], i) => ({ src: `assets/img/pichacao${i + 1}.webp`, w, h }));
   const SPRAY = { x: -129, y: 190 };                                  // jato do spray no "pichando" (relativo ao corpo)
   const CLOTH = { x: -26, y: 190 }, CLOTH_SPAN = [-112, 61];          // panos no "apagando"/"limpando"

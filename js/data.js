@@ -70,7 +70,9 @@ window.CATEGORIES = [
   { id: "animacoes", bg: "assets/img/fundos/animacoes_v2.webp", cover: "assets/works/animacoes/lorena_tiropistola.gif", fit: "contain", pixel: true,
     label: { pt: "Animações", en: "Animations" },
     blurb: { pt: "Animação frame a frame em pixel art.", en: "Frame-by-frame pixel art animation." } },
-  { id: "ilustracoes", label: { pt: "Ilustrações", en: "Illustrations" } }
+  { id: "ilustracoes", bg: "assets/img/fundos/ilustracoes.webp", cover: "assets/works/ilustracoes/agonia_by_gbdracco_thumb.webp",
+    label: { pt: "Ilustrações digitais", en: "Digital illustrations" },
+    blurb: { pt: "Criaturas e horror pintados digitalmente.", en: "Creatures and horror painted digitally." } }
 ];
 
 /* Trabalhos
@@ -236,6 +238,23 @@ window.WORKS = [
     desc: {
       pt: "Monstro com design também inspirado em Silent Hill. Desmotes representa a incapacidade, a impotência e o aprisionamento.\nÉ uma criatura que parece ter dificuldade até mesmo para perseguir suas vítimas ou realizar ataques. Seu próprio corpo transmite a sensação de limitação e sofrimento.\nÉ alto, esguio e produz sons semelhantes a murmúrios abafados e sofridos. O som de sua bola de ferro arrastando pelo chão, acompanhado pelo ruído das correntes, pode denunciar sua presença antes mesmo que a criatura seja vista.",
       en: "A monster whose design is also inspired by Silent Hill. Desmotes represents incapacity, powerlessness and imprisonment.\nIt seems to struggle even to chase its victims or attack. Its very body conveys limitation and suffering.\nIt is tall and gaunt and makes sounds like muffled, pained murmurs. The sound of its iron ball dragging across the floor, along with the rattle of chains, can give away its presence before the creature is even seen."
+    } },
+
+  /* ---------- Ilustrações digitais ---------- */
+  { category: "ilustracoes", title: "Agonia", ...art("ilustracoes", "agonia_by_gbdracco"), fit: "contain",
+    desc: {
+      pt: "Arte conceitual de criatura inspirada na franquia Silent Hill — ilustração digital.\nA proposta foi desenvolver uma criatura de anatomia disforme e postura contorcida, capaz de transmitir desconforto, agonia e sofrimento.\nSeus braços fundidos ao próprio corpo reforçam a sensação de aprisionamento físico, enquanto o rosto encoberto por uma camada de pele sugere a existência de algo sufocado em seu interior — uma presença incapaz de respirar ou enxergar, aprisionada pela própria carne.\nA ideia é explorar o horror não apenas por meio da aparência grotesca da criatura, mas também pela sensação de claustrofobia e impotência que sua forma evoca.",
+      en: "Creature concept art inspired by the Silent Hill franchise — digital illustration.\nThe goal was to design a creature with a misshapen anatomy and a twisted posture, able to convey discomfort, agony and suffering.\nIts arms fused to its own body reinforce the feeling of physical imprisonment, while the face covered by a layer of skin suggests something smothered inside — a presence unable to breathe or see, trapped by its own flesh.\nThe idea is to explore horror not only through the creature's grotesque appearance, but also through the claustrophobia and helplessness its form evokes."
+    } },
+  { category: "ilustracoes", title: { pt: "Fada de Darkwood", en: "Darkwood Fairy" }, ...art("ilustracoes", "fada_de_darkwood_by_gbdracco"), fit: "contain",
+    desc: {
+      pt: "Fada insectoide — design de criatura.\nDesign inspirado na anatomia de uma vespa, combinando traços femininos com características físicas e comportamentais de insetos.\nA proposta é explorar a fusão entre o delicado e o ameaçador, criando uma criatura que transita entre o fantástico e o natural, com uma identidade visual que une a figura feminina à natureza predatória dos insetos.",
+      en: "Insectoid fairy — creature design.\nA design inspired by the anatomy of a wasp, combining feminine traits with the physical and behavioural features of insects.\nThe goal is to explore the fusion of the delicate and the threatening, creating a creature that moves between the fantastic and the natural, with a visual identity that joins the female figure to the predatory nature of insects."
+    } },
+  { category: "ilustracoes", title: { pt: "Hecatônquiros", en: "Hecatoncheires" }, ...art("ilustracoes", "hecatonquiros_by_gbdracco"), fit: "contain",
+    desc: {
+      pt: "Hecatônquiros — conceito de criatura e horror biológico.\nA ideia surgiu ao imaginar um vírus capaz de transformar seres humanos em zumbis, mas com uma particularidade que o diferencia das infecções tradicionais.\nAo infectar uma vítima, o zumbi passa a mordê-la e a transmitir-lhe o vírus. No entanto, mesmo após a transformação, ele não abandona o corpo infectado. Em vez disso, permanece agarrado a ele, como se ambos estivessem presos por um instinto incontrolável.\nA principal característica desse vírus é sua capacidade de amolecer os tecidos dos corpos infectados, especialmente a pele, permitindo que eles se fundam progressivamente. Com o passar do tempo, os limites entre os indivíduos desaparecem, dando origem a uma única massa orgânica composta por múltiplos corpos. Quanto mais tempo a infecção avança, mais complexa e disforme se torna essa estrutura.\nO nome ==Hecatônquiros== faz referência aos hecatônquiros da mitologia grega, gigantes conhecidos por possuírem cem braços e cinquenta cabeças. Assim como essas entidades mitológicas, a criatura representa a convergência de múltiplos corpos em uma única existência monstruosa.",
+      en: "Hecatoncheires — creature concept and body horror.\nThe idea came from imagining a virus that turns humans into zombies, but with a twist that sets it apart from traditional infections.\nWhen it infects a victim, the zombie bites it and passes on the virus. Yet even after the transformation, it does not let go of the infected body. Instead, it stays clinging to it, as if both were bound by an uncontrollable instinct.\nThe virus's main trait is its ability to soften the tissues of infected bodies, especially the skin, letting them gradually fuse together. Over time, the boundaries between individuals disappear, giving rise to a single organic mass made of many bodies. The longer the infection runs, the more complex and misshapen this structure becomes.\nThe name ==Hecatoncheires== refers to the hecatoncheires of Greek mythology, giants known for having a hundred arms and fifty heads. Like those mythological beings, the creature represents many bodies converging into a single monstrous existence."
     } },
 
   /* ---------- Esculturas ---------- */

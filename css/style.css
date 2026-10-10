@@ -794,3 +794,13 @@ html.game-open { overflow: hidden; }
 @keyframes noteSway { 0%, 100% { transform: rotate(-3deg); } 50% { transform: rotate(3deg); } }
 @media (prefers-reduced-motion: reduce) { .spider-note__img { animation: none; } }
 @media (max-width: 560px) { .spider-note { gap: 14px; padding: 16px; } .spider-note__img { width: 64px; } }
+
+/* mata-moscas: aparece sobre os insetos depois de coletado */
+.spider-bug { filter: drop-shadow(0 4px 6px rgba(0,0,0,.4)); }
+.swatter { position: fixed; left: 0; top: 0; width: 0; height: 0; z-index: 75; pointer-events: none; }
+.swatter[hidden] { display: none !important; }
+.swatter img { position: absolute; left: -23px; top: -26px; width: auto; height: 190px; max-width: none; transform-origin: 23px 26px;
+  transform: rotate(-22deg); filter: drop-shadow(0 8px 12px rgba(0,0,0,.55)); }
+html.swat-on, html.swat-on * { cursor: none !important; }
+.swatter-box .scissors__btn { height: 150px; }
+.swatter-box .scissors__btn img { transform: rotate(-14deg); }

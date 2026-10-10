@@ -266,6 +266,18 @@
     msg.dataset.i18n = "about.scissorsGot"; msg.textContent = t("about.scissorsGot");
     scBtn.addEventListener("animationend", () => (scBtn.hidden = true), { once: true });
   });
+  // mata-moscas (seção Sobre): ao pegar, aparece sobre os insetos e dá para bater neles
+  const swBtn = $("#swatterBtn");
+  swBtn?.addEventListener("click", () => {
+    if (window.__mataMoscas) return;
+    window.__mataMoscas = true;
+    document.dispatchEvent(new Event("matamoscas"));
+    const box = $("#swatterBox");
+    box.classList.add("is-got");
+    const msg = box.querySelector("[data-i18n]");
+    msg.dataset.i18n = "about.swatterGot"; msg.textContent = t("about.swatterGot");
+    swBtn.addEventListener("animationend", () => (swBtn.hidden = true), { once: true });
+  });
   // logo "GP." volta para a home: fecha a categoria aberta e sobe para o topo
   $(".nav__logo")?.addEventListener("click", (e) => {
     e.preventDefault();

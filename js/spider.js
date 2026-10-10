@@ -50,7 +50,7 @@
     returnAfter: 7000,    // ms depois de sumir para voltar pela parede
     wallSpeed: 310,       // px/s andando na parede
     // escala de cada animação em relação à teia (ajuste fino visual)
-    size: { brava: 0.68, empe: 0.68, virada: 0.68, andando: 0.5, cima: 1.0, parede: 1.05, wppteia: 0.82, espreita: 1, ataque: 1, levando: 1 },
+    size: { brava: 0.68, empe: 0.68, virada: 0.68, andando: 0.5, cima: 1.0, parede: 1.05, wppteia: 0.82, espreita: 1, ataque: 1, levando: 1, levando_b: 1, limpando: 1, pano: 1 },
     wppAfter: 120000,     // ms pendurada sem interação até buscar o WhatsApp (2 min)
     wallWppAfter: 180000, // ms andando na parede até sair e buscar o WhatsApp (3 min)
     shootSpeed: 520,      // px/s do fio descendo no disparo (devagar)
@@ -89,6 +89,9 @@
     espreita:       { src: S + "espreitando.webp",      frames: 4,  fps: 6,  loop: true },   // caçando a mosca (cabeça para baixo, como o idle_parede)
     ataque:         { src: S + "ataque_mosca.webp",     frames: 16, fps: 8,  loop: false },
     levando:        { src: S + "levando_mosca.webp",    frames: 4,  fps: 6,  loop: true },
+    levando_b:      { src: S + "levando_besouro.webp",  frames: 4,  fps: 6,  loop: true },
+    limpando:       { src: S + "limpando.webp",         frames: 8,  fps: 6,  loop: true },   // faxina do besouro esmagado (cabeça para baixo)
+    pano:           { src: S + "trazendo_pano.webp",    frames: 10, fps: 21, loop: true },   // andando com os panos (cabeça para cima)
     wpp:            { src: S + "wpp.png",               frames: 8,  fps: 8,  loop: true },
     wppteia:        { src: S + "wppteia.png",           frames: 4,  fps: 5,  loop: true },  // símbolo preso na teia (canvas próprio)
     simbolo:        { src: S + "simbolo_wpp.png",       frames: 1,  fps: 1,  loop: true, still: true }  // símbolo solto (estático)
@@ -98,7 +101,8 @@
   const REF = {
     brava: { x: 405, y: 459 }, empe: { x: 405, y: 459 }, virada: { x: 405, y: 459 }, andando: { x: 400, y: 500 },
     cima: { x: 413, y: 263 }, parede: { x: 401, y: 205 },
-    espreita: { x: 379, y: 250 }, ataque: { x: 379, y: 250 }, levando: { x: 379, y: 184 }
+    espreita: { x: 379, y: 250 }, ataque: { x: 379, y: 250 }, levando: { x: 379, y: 184 },
+    levando_b: { x: 379, y: 174 }, limpando: { x: 379, y: 250 }, pano: { x: 400, y: 262 }
   };
   const BBOX = { brava: [201,166,609,459], cima: [216,58,611,468], parede: [205,26,598,384] };
 
@@ -501,6 +505,7 @@
         exiting = false; variant = "normal"; pendingShoot = true; idleAcc = 0;
         respawn();
       } else {
+        dash = 1;
         setMode("wallIdle");
         if (steal && steal.arrive) { const f = steal.arrive; steal.arrive = null; f(); }   // chegou num ponto do "roubo"
         else if (hunt && hunt.arrive) { const f = hunt.arrive; hunt.arrive = null; f(); }  // chegou perto da mosca
@@ -508,7 +513,7 @@
       return;
     }
     const dx = p.x - wx, dy = p.y - wy, d = Math.hypot(dx, dy);
-    const step = CONFIG.wallSpeed * (steal && (steal.phase === "go" || steal.phase === "carry") ? 1.7 : 1) * dt;   // em missão anda mais depressa
+    const step = CONFIG.wallSpeed * dash * (steal && (steal.phase === "go" || steal.phase === "carry") ? 1.7 : 1) * dt;   // em missão anda mais depressa
     // vira suavemente para a direção do movimento (sprite olha para cima)
     const want = Math.atan2(dx, -dy);
     let diff = ((want - rot + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
@@ -652,9 +657,9 @@
     return hangItem(clone, w, h, s, Math.max(4, by - s.y), link);     // fiandeira encostada no topo do botão
   }
   // carcaça da mosca enrolada na teia (de cabeça para baixo), pendurada como os botões
-  function grabCarcass(s) {
-    const k = FLY.k * scale, w = FLY.morta.w * k, h = FLY.morta.h * k;
-    const img = new Image(); img.src = FLY.morta.src; img.alt = ""; img.className = "fly-carcass";
+  function grabCarcass(s, spec) {
+    const k = spec.k * scale, w = spec.w * k, h = spec.h * k;
+    const img = new Image(); img.src = spec.src; img.alt = ""; img.className = "fly-carcass";
     img.style.width = w + "px"; img.style.height = h + "px";
     return hangItem(img, w, h, s, 6, null);
   }
@@ -795,10 +800,10 @@
       chase: Math.random() < FLY.webChase, ph: rnd(0, 6) };
   }
   function flyAnim(a) { if (fly.a !== a) { fly.a = a; fly.f = 0; fly.ft = 0; } }
-  function flyAway() {
-    fly.st = "out"; flyAnim("fly");
+  function flyAway(fast) {
+    fly.st = "out"; flyAnim("fly"); fly.fast = !!fast;
     fly.dir = fly.x < viewW / 2 ? -1 : 1;
-    fly.vx = fly.dir * 120; fly.vy = -rnd(60, 160);
+    fly.vx = fly.dir * (fast ? 700 : 120); fly.vy = -rnd(fast ? 200 : 60, fast ? 380 : 160);
   }
   function startDart() {
     // vira para um lado qualquer e dá uma corridinha curta; longe do ponto de pouso, volta para perto dele
@@ -853,8 +858,8 @@
         if (fly.wait <= 0) startDart();
         break;
       case "out":                                                     // vai embora voando
-        fly.vx += fly.dir * 900 * dt; fly.vy -= 140 * dt;
-        fly.vx = clamp(fly.vx, -FLY.flySpeed, FLY.flySpeed);
+        fly.vx += fly.dir * (fly.fast ? 3500 : 900) * dt; fly.vy -= 140 * dt;
+        fly.vx = clamp(fly.vx, -(fly.fast ? 1500 : FLY.flySpeed), fly.fast ? 1500 : FLY.flySpeed);
         fly.x += fly.vx * dt; fly.y += fly.vy * dt + Math.sin(fly.t * 11 + fly.ph) * 40 * dt;
         fly.tilt = -0.15 * fly.dir;
         if (fly.x < -90 || fly.x > viewW + 90) { fly = null; flyWait = rnd(...FLY.every); }
@@ -862,23 +867,164 @@
     }
   }
 
-  // a aranha vê a mosca? (as duas na mesma tela)
+  /* ---------- Besouro ----------
+     Mais raro que a mosca. Entra andando por um lado, anda em linhas aleatórias, para (idle), anda de novo
+     e depois vai embora. Se a aranha o vê, ele FOGE correndo e ela persegue; depois de um tempo ele cansa e
+     para — ela se aproxima devagar por trás, contorna até o lado direito dele e dá o bote (como na mosca).
+     Mata-moscas: o besouro pode ser esmagado → a aranha sai da tela, volta com o pano e limpa a sujeira.
+     Teste: ?besouro=3 (primeiro besouro em 3 s). Depuração: window.__besouro(), window.__mataMoscas = true. */
+  const BUG = {
+    k: 1 / 0.6,                  // px da folha → unidades do quadro da aranha (mesma escala do desenho original)
+    first: [60000, 240000],      // ms até o primeiro besouro
+    every: [120000, 300000],     // ms entre um besouro e outro
+    life: [25, 50], walkSpeed: 75, runSpeed: 290, chase: [5, 10], webChase: 0.5,
+    sheets: {
+      idle:  { src: S + "besouro_idle.webp",  n: 12, cols: 8, fw: 251, fh: 216, cx: 125.4, cy: 91.8,  fps: 9,  loop: true },
+      run:   { src: S + "besouro_run.webp",   n: 14, cols: 8, fw: 251, fh: 216, cx: 125.4, cy: 91.8,  fps: 60, loop: true },
+      splat: { src: S + "besouro_splat.webp", n: 6,  cols: 6, fw: 448, fh: 480, cx: 211.8, cy: 244.2, fps: 5,  loop: true },
+      gone:  { src: S + "besouro_gone.webp",  n: 12, cols: 8, fw: 448, fh: 480, cx: 211.8, cy: 244.2, fps: 5,  loop: false }
+    },
+    teia: { src: S + "besouro_teia.webp", w: 113, h: 185 }
+  };
+  if (params.has("besouro")) BUG.first = [Number(params.get("besouro")) * 1000 || 3000, Number(params.get("besouro")) * 1000 || 3000];
+  // no "levando_besouro" o besouro fica com o centro em (−24, 185) do ponto de referência, virado −73°
+  const LEV_B = { x: -24, y: 185, ang: -1.27 };
+  const CLEAN_REACH = 190;           // os panos ficam ~190 unidades à frente do corpo no "limpando"
+  const bugCanvas = document.createElement("canvas");
+  bugCanvas.className = "spider-sprite spider-bug";
+  bugCanvas.hidden = true;
+  layer.insertBefore(bugCanvas, flyCanvas);                          // por baixo da mosca e da aranha
+  const bctx = bugCanvas.getContext("2d");
+  let bugImgs = {}, bug = null, bugWait = rnd(...BUG.first), bugCanvasKey = "";
+
+  function spawnBug() {
+    const sy = window.scrollY, from = Math.random() < 0.5 ? -1 : 1, y = sy + innerHeight * rnd(0.25, 0.75);
+    bug = { st: "walk", a: "run", fps: 18, f: 0, ft: 0, t: 0, x: from < 0 ? -90 : viewW + 90, y, rot: from < 0 ? Math.PI / 2 : -Math.PI / 2,
+      tx: viewW * rnd(0.2, 0.8), ty: clamp(y + rnd(-120, 120), sy + 90, sy + innerHeight - 90), wait: 0, life: rnd(...BUG.life),
+      chase: Math.random() < BUG.webChase, fade: 1, wob: rnd(0, 6) };
+  }
+  function bugAnim(a, fps) { if (bug.a !== a) { bug.a = a; bug.f = 0; bug.ft = 0; } bug.fps = fps || BUG.sheets[a].fps; }
+  function bugNewTarget() {
+    const sy = window.scrollY, a = rnd(0, Math.PI * 2), d = rnd(90, 320);
+    bug.tx = clamp(bug.x + Math.cos(a) * d, 60, viewW - 60);
+    bug.ty = clamp(bug.y + Math.sin(a) * d, sy + 80, sy + innerHeight - 80);
+  }
+  function vanishBug() { bug.st = "gone"; bugAnim("gone"); }
+
+  function updateBug(dt) {
+    if (!bug) {
+      if (!layer.classList.contains("is-on")) return;
+      bugWait -= dt * 1000;
+      if (bugWait <= 0) spawnBug();
+      return;
+    }
+    const sh = BUG.sheets[bug.a];
+    bug.t += dt; bug.ft += dt;
+    while (bug.ft >= 1 / bug.fps) { bug.ft -= 1 / bug.fps; if (++bug.f >= sh.n) bug.f = sh.loop ? 0 : sh.n - 1; }
+    switch (bug.st) {
+      case "walk": case "out": {                                      // anda em linha reta até o alvo
+        const dx = bug.tx - bug.x, dy = bug.ty - bug.y, d = Math.hypot(dx, dy);
+        const want = Math.atan2(dx, -dy), turn = angDiff(want, bug.rot);
+        bug.rot += turn * Math.min(1, dt * 7);
+        const step = BUG.walkSpeed * (bug.st === "out" ? 1.5 : 1) * dt * (Math.abs(turn) < 0.5 ? 1 : 0.25);
+        if (d <= step) {
+          bug.x = bug.tx; bug.y = bug.ty;
+          if (bug.st === "out") { bug = null; bugWait = rnd(...BUG.every); return; }
+          bug.st = "idle"; bugAnim("idle"); bug.wait = rnd(1.5, 4.5);
+        } else { bug.x += dx / d * step; bug.y += dy / d * step; }
+        break;
+      }
+      case "idle":
+        bug.wait -= dt;
+        if (bug.wait <= 0) {
+          bugAnim("run", 18);
+          if (bug.t > bug.life) { bug.st = "out"; bug.tx = bug.x < viewW / 2 ? -110 : viewW + 110; bug.ty = bug.y + rnd(-80, 80); }
+          else { bug.st = "walk"; bugNewTarget(); }
+        }
+        break;
+      case "flee": fleeBug(dt); break;
+      case "splat":                                                   // esmagado: espera a faxina (ou some sozinho)
+        bug.wait -= dt;
+        if (bug.wait <= 0 && !(hunt && hunt.kind === "clean")) vanishBug();
+        break;
+      case "gone":
+        if (bug.f >= BUG.sheets.gone.n - 1) { bug.fade -= dt * 3; if (bug.fade <= 0) { bug = null; bugWait = rnd(...BUG.every); } }
+        break;
+    }
+  }
+  // fugindo: corre para longe da aranha, desviando das bordas da tela
+  function fleeBug(dt) {
+    const sy = window.scrollY, m = 70;
+    let ax = bug.x - wx, ay = bug.y - wy;
+    const d = Math.hypot(ax, ay) || 1; ax /= d; ay /= d;
+    const push = (v, lo, hi) => (v < lo + 150 ? (lo + 150 - v) / 150 : 0) - (v > hi - 150 ? (v - hi + 150) / 150 : 0);
+    const px = push(bug.x, m, viewW - m), py = push(bug.y, sy + m, sy + innerHeight - m);
+    ax += px * 2.4; ay += py * 2.4;
+    if (px || py) { ax += -ay * 0.8; ay += ax * 0.8; }                // encurralado: escorrega pela borda
+    if (bug.tiring) { const cx = viewW / 2 - bug.x, cy = sy + innerHeight / 2 - bug.y, cd = Math.hypot(cx, cy) || 1; ax += cx / cd * 1.8; ay += cy / cd * 1.8; }
+    bug.wob += dt;
+    ax += Math.sin(bug.wob * 1.7) * 0.35; ay += Math.cos(bug.wob * 1.3) * 0.35;
+    bug.rot += angDiff(Math.atan2(ax, -ay), bug.rot) * Math.min(1, dt * 5);
+    const sp = BUG.runSpeed * dt;
+    bug.x = clamp(bug.x + Math.sin(bug.rot) * sp, m * 0.5, viewW - m * 0.5);
+    bug.y = clamp(bug.y - Math.cos(bug.rot) * sp, sy + m * 0.5, sy + innerHeight - m * 0.5);
+  }
+
+  function drawBug() {
+    const show = !!bug && bug.st !== "caught" && layer.classList.contains("is-on") && !!bugImgs[bug.a];
+    bugCanvas.hidden = !show;
+    if (!show) return;
+    const sh = BUG.sheets[bug.a], s = BUG.k * scale;
+    const key = `${scale}|${dpr}`;
+    if (key !== bugCanvasKey) {
+      bugCanvasKey = key;
+      bugCanvas.width = Math.ceil(448 * s * dpr); bugCanvas.height = Math.ceil(480 * s * dpr);
+      bugCanvas.style.width = bugCanvas.width / dpr + "px"; bugCanvas.style.height = bugCanvas.height / dpr + "px";
+    }
+    bctx.setTransform(1, 0, 0, 1, 0, 0);
+    bctx.clearRect(0, 0, bugCanvas.width, bugCanvas.height);
+    const f = bug.f % sh.n;
+    bctx.drawImage(bugImgs[bug.a], (f % sh.cols) * sh.fw, ((f / sh.cols) | 0) * sh.fh, sh.fw, sh.fh, 0, 0, sh.fw * s * dpr, sh.fh * s * dpr);
+    bugCanvas.style.opacity = Math.max(0, bug.fade);
+    bugCanvas.style.transformOrigin = `${sh.cx * s}px ${sh.cy * s}px`;
+    bugCanvas.style.transform = `translate(${bug.x - sh.cx * s}px, ${bug.y - window.scrollY - sh.cy * s}px) rotate(${bug.rot}rad)`;
+  }
+
+  /* ---------- Caçada (mosca ou besouro) e faxina ---------- */
+  const onWall = () => mode === "wallWalk" || mode === "wallIdle";
+  const webFree = () => ["idle", "moving", "stopping", "pointing"].includes(mode);
+  const HEAD_DOWN = ["espreita", "ataque", "levando", "levando_b", "limpando"];
+
+  // a aranha vê um inseto? (os dois na mesma tela)
   function maybeHunt() {
-    if (hunt || !fly || !["idle", "walk", "pause"].includes(fly.st) || !onScreen(fly.y)) return;
-    if (mode === "wallWalk" || mode === "wallIdle") {
+    if (hunt) return;
+    if (bug && bug.st === "splat") { maybeClean(); return; }          // sujeira primeiro
+    let kind = null, prey = null;
+    if (fly && ["idle", "walk", "pause"].includes(fly.st) && onScreen(fly.y)) { kind = "fly"; prey = fly; }
+    else if (bug && ["walk", "idle"].includes(bug.st) && onScreen(bug.y) && bug.x > 30 && bug.x < viewW - 30) { kind = "bug"; prey = bug; }
+    if (!prey) return;
+    const h = { kind, prey, lev: kind === "bug" ? LEV_B : LEV };
+    if (onWall()) {
       if (exiting || !onScreen(wy, -40)) return;
       if (steal) { if (steal.phase !== "go") return; steal = null; }   // ainda indo buscar um botão: desiste dele
-      hunt = {};
+      hunt = h;
       startHunt();
-    } else if (["idle", "moving", "stopping", "pointing"].includes(mode) && fly.chase) {
-      leaveWeb();
+    } else if (webFree() && prey.chase) {
+      if (kind === "fly") fly.frozen = true;
+      leaveWeb(Object.assign(h, { afterClimb: startHunt }));
     }
+  }
+  function maybeClean() {
+    if (onWall()) {
+      if (exiting || steal) return;
+      hunt = { kind: "clean", prey: bug };
+      cleanLeave();
+    } else if (webFree()) leaveWeb({ kind: "clean", prey: bug, afterClimb: cleanAway });
   }
 
   // na teia: larga o símbolo (se estiver com ele) e sobe até sumir da tela
-  function leaveWeb() {
-    hunt = { phase: "climb" };
-    fly.frozen = true;
+  function leaveWeb(h) {
+    hunt = Object.assign(h, { phase: "climb" });
     if (variant === "hold" || variant === "wpp") {
       if (variant === "wpp") {
         const ks = scale * CONFIG.size.wppteia;
@@ -896,52 +1042,81 @@
     pos -= 560 * dt;
     if (pos - window.scrollY + (460 - ANCHOR.y) * scale < -20) {     // sumiu por cima → desce pela parede
       wx = clampX(webX() + 10); wy = window.scrollY - 150 * scale; rot = Math.PI;
-      startHunt();
+      if (hunt && hunt.afterClimb) hunt.afterClimb(); else enterView();
     }
   }
 
-  // geometria do bote: onde ela tem de terminar (levando a mosca) e de onde salta
+  // geometria do bote: onde ela tem de terminar (levando a presa) e de onde salta
   function huntGeom() {
-    const k = scale * CONFIG.size.levando, rf = fly.rot - LEV.ang;
+    const p = hunt.prey, lv = hunt.lev;
+    const k = scale * CONFIG.size.levando, rf = p.rot - lv.ang;
     const c = Math.cos(rf), s = Math.sin(rf);
-    const Pf = { x: fly.x - (LEV.x * c - LEV.y * s) * k, y: fly.y - (LEV.x * s + LEV.y * c) * k };
+    const Pf = { x: p.x - (lv.x * c - lv.y * s) * k, y: p.y - (lv.x * s + lv.y * c) * k };
     const L = 120 * k, Ps = { x: Pf.x + Math.sin(rf) * L, y: Pf.y - Math.cos(rf) * L };   // recua na direção oposta à cabeça
-    return { rf, Pf, Ps, Rs: Math.hypot(Ps.x - fly.x, Ps.y - fly.y), th: Math.atan2(Ps.y - fly.y, Ps.x - fly.x) };
+    return { rf, Pf, Ps, Rs: Math.hypot(Ps.x - p.x, Ps.y - p.y), th: Math.atan2(Ps.y - p.y, Ps.x - p.x) };
   }
   function startHunt() {
-    fly.frozen = true;
+    const p = hunt.prey;
+    if (hunt.kind === "bug") {                                        // besouro: foge e ela persegue
+      hunt.phase = "chase"; hunt.t = 0; hunt.chaseT = rnd(...BUG.chase);
+      p.st = "flee"; bugAnim("run", 60);
+      setMode("hunt"); play("cima");
+      return;
+    }
+    p.frozen = true;
     hunt.phase = "approach";
-    const g = huntGeom(), a = Math.atan2(wy - fly.y, wx - fly.x), R = g.Rs * 1.35;
-    goTo(clampX(fly.x + Math.cos(a) * R), fly.y + Math.sin(a) * R);
+    const g = huntGeom(), a = Math.atan2(wy - p.y, wx - p.x), R = g.Rs * 1.35;
+    goTo(clampX(p.x + Math.cos(a) * R), p.y + Math.sin(a) * R);
     hunt.arrive = beginStalk;
   }
   function beginStalk() {
+    const p = hunt.prey;
     flipRot();                                                        // "cima" → desenho de cabeça para baixo
     setMode("hunt"); play("espreita");
-    const g = huntGeom(), a = Math.atan2(wy - fly.y, wx - fly.x), d = angDiff(g.th, a);
-    const way = [];
-    if (Math.abs(d) < 1.1) way.push(a - Math.sign(d || 1) * rnd(0.5, 0.9));   // perto demais: dá a volta primeiro (a "dança")
-    way.push(null);                                                   // null = lado direito da mosca
-    Object.assign(hunt, { phase: "stalk", ang: a, R: Math.hypot(wx - fly.x, wy - fly.y), way, move: rnd(0.5, 1), pause: 0, t: 0 });
+    const g = huntGeom(), a = Math.atan2(wy - p.y, wx - p.x), way = [];
+    if (hunt.kind === "bug") way.push(Math.atan2(Math.cos(p.rot), -Math.sin(p.rot)));   // besouro: vem por trás
+    else { const d = angDiff(g.th, a); if (Math.abs(d) < 1.1) way.push(a - Math.sign(d || 1) * rnd(0.5, 0.9)); }   // a "dança"
+    way.push(null);                                                   // null = lado direito da presa
+    Object.assign(hunt, { phase: "stalk", ang: a, R: Math.hypot(wx - p.x, wy - p.y), way, move: rnd(0.5, 1), pause: 0, t: 0,
+      speed: hunt.kind === "bug" ? 55 : 85 });
   }
-  function faceFly(dt, rate) {
-    const want = Math.atan2(-(fly.x - wx), fly.y - wy);               // cabeça (para baixo no desenho) apontando para a mosca
+  function facePrey(dt, rate) {
+    const p = hunt.prey, want = Math.atan2(-(p.x - wx), p.y - wy);   // cabeça (para baixo no desenho) apontando para a presa
     rot += angDiff(want, rot) * Math.min(1, dt * rate);
+  }
+  function moveTo(tx, ty, speed, dt, headUp) {                        // anda em linha reta virando para o caminho
+    const dx = tx - wx, dy = ty - wy, d = Math.hypot(dx, dy);
+    rot += angDiff(headUp ? Math.atan2(dx, -dy) : Math.atan2(-dx, dy), rot) * Math.min(1, dt * 5);
+    const step = speed * dt;
+    if (d <= step) { wx = tx; wy = ty; return true; }
+    wx += dx / d * step; wy += dy / d * step;
+    return false;
   }
 
   function updateHunt(dt) {
     hunt.t += dt;
-    if (hunt.phase === "stalk") {
-      faceFly(dt, 5);
-      if (hunt.pause > 0) { hunt.pause -= dt; animHold = true; return; }   // paradinha, olhando a mosca
+    const p = hunt.prey;
+    if (hunt.phase === "chase") {                                    // perseguição: ela nunca alcança enquanto ele corre
+      const dx = p.x - wx, dy = p.y - wy, d = Math.hypot(dx, dy);
+      rot += angDiff(Math.atan2(dx, -dy), rot) * Math.min(1, dt * 6);
+      const sp = (d > 190 ? BUG.runSpeed * 1.2 : d > 120 ? BUG.runSpeed * 0.95 : BUG.runSpeed * 0.6) * dt;
+      wx += Math.sin(rot) * sp; wy -= Math.cos(rot) * sp;
+      if (hunt.t >= hunt.chaseT) {                                    // cansando: perde o rumo e vai para o meio da tela
+        p.tiring = true;
+        const sy = window.scrollY, inside = p.x > viewW * 0.25 && p.x < viewW * 0.75 && p.y > sy + innerHeight * 0.25 && p.y < sy + innerHeight * 0.75;
+        if (inside || hunt.t >= hunt.chaseT + 8) { p.st = "tired"; p.tiring = false; bugAnim("idle"); beginStalk(); }   // cansou: para
+      }
+    } else if (hunt.phase === "stalk") {
+      facePrey(dt, 5);
+      if (hunt.pause > 0) { hunt.pause -= dt; animHold = true; return; }   // paradinha, olhando a presa
       animHold = false;
       hunt.move -= dt;
       if (hunt.move <= 0) { hunt.move = rnd(0.5, 1.2); hunt.pause = rnd(0.25, 0.8); }
       const g = huntGeom(), tgt = hunt.way[0] ?? g.th, d = angDiff(tgt, hunt.ang);
-      const w = 85 / Math.max(40, hunt.R);
+      const w = hunt.speed / Math.max(40, hunt.R);
       hunt.ang += clamp(d, -w * dt, w * dt);
-      hunt.R += (g.Rs - hunt.R) * Math.min(1, dt * 1.1);
-      wx = fly.x + Math.cos(hunt.ang) * hunt.R; wy = fly.y + Math.sin(hunt.ang) * hunt.R;
+      hunt.R += (g.Rs - hunt.R) * Math.min(1, dt * (hunt.kind === "bug" ? 0.7 : 1.1));
+      wx = p.x + Math.cos(hunt.ang) * hunt.R; wy = p.y + Math.sin(hunt.ang) * hunt.R;
       if (Math.abs(d) < 0.015) {
         if (hunt.way[0] != null) hunt.way.shift();
         else if (Math.abs(hunt.R - g.Rs) < 3 && hunt.t > 2.5) { hunt.phase = "attack"; hunt.t = 0; hunt.g = g; hunt.r0 = rot; play("ataque"); }
@@ -952,36 +1127,138 @@
       const u = clamp((hunt.t - 9 / 8) / (5 / 8), 0, 1), e = 1 - Math.pow(1 - u, 3);
       wx = g.Ps.x + (g.Pf.x - g.Ps.x) * e; wy = g.Ps.y + (g.Pf.y - g.Ps.y) * e;
       if (hunt.t >= 14 / 8) {                                         // pegou
-        fly.st = "caught"; play("levando");
+        p.st = "caught"; play(hunt.kind === "bug" ? "levando_b" : "levando");
         const off = 320 * scale, sy = window.scrollY;
         hunt.tx = wx < viewW / 2 ? -off : viewW + off;
         hunt.ty = wy - sy < innerHeight / 2 ? sy - off : sy + innerHeight + off;
         hunt.phase = "carry"; hunt.t = 0;
       }
-    } else if (hunt.phase === "carry") {                             // leva a mosca para fora da tela por um canto
+    } else if (hunt.phase === "carry") {                             // leva a presa para fora da tela por um canto
       if (hunt.t < 0.5) return;                                      // segura a presa um instante
-      const dx = hunt.tx - wx, dy = hunt.ty - wy, d = Math.hypot(dx, dy);
-      rot += angDiff(Math.atan2(-dx, dy), rot) * Math.min(1, dt * 4);
-      const step = CONFIG.wallSpeed * 1.25 * dt;
-      if (d <= step) { wx = hunt.tx; wy = hunt.ty; hunt.phase = "wrap"; hunt.t = 0; }
-      else { wx += dx / d * step; wy += dy / d * step; }
-    } else if (hunt.phase === "wrap") {                              // fora da tela: enrola a mosca na teia
+      if (moveTo(hunt.tx, hunt.ty, CONFIG.wallSpeed * 1.25, dt, false)) { hunt.phase = "wrap"; hunt.t = 0; }
+    } else if (hunt.phase === "wrap") {                              // fora da tela: enrola a presa na teia
       if (hunt.t < 2.6) return;
-      fly = null; flyWait = rnd(...FLY.every);
+      if (hunt.kind === "bug") { bug = null; bugWait = rnd(...BUG.every); }
+      else { fly = null; flyWait = rnd(...FLY.every); }
       steal = { phase: "carry", fly: true, t: 0 };
       play("cima"); flipRot();
-      steal.item = grabCarcass(spinneret());
+      steal.item = grabCarcass(spinneret(), hunt.kind === "bug" ? { ...BUG.teia, k: BUG.k } : { ...FLY.morta, k: FLY.k });
       hunt.phase = "return";
       carryTo();                                                      // volta e pendura como os botões
     }
+    // ---- faxina do besouro esmagado ----
+    else if (hunt.phase === "away") {                                // fora da tela, pegando o pano
+      if (hunt.t < 1.2) return;
+      const off = 260 * scale, sy = window.scrollY;
+      wx = p.x < viewW / 2 ? -off : viewW + off;
+      wy = clamp(p.y + rnd(-140, 140), sy + 60, sy + innerHeight - 60);
+      const dx = p.x - wx, dy = p.y - wy, d = Math.hypot(dx, dy) || 1, k = scale * CONFIG.size.limpando;
+      hunt.P = { x: p.x - dx / d * CLEAN_REACH * k, y: p.y - dy / d * CLEAN_REACH * k };
+      rot = Math.atan2(dx, -dy);
+      play("pano"); hunt.phase = "bring"; hunt.t = 0;
+    } else if (hunt.phase === "bring") {                             // volta trazendo o pano
+      if (moveTo(hunt.P.x, hunt.P.y, CONFIG.wallSpeed * 1.2, dt, true)) {
+        flipRot(); play("limpando");
+        hunt.phase = "clean"; hunt.t = 0;
+        if (p.st === "splat") vanishBug();                            // a sujeira some do meio para fora junto com a limpeza
+      }
+    } else if (hunt.phase === "clean") {
+      const per = { x: Math.cos(rot), y: Math.sin(rot) }, wig = Math.sin(hunt.t * 6) * 5 * scale * 2;   // esfrega de um lado para o outro
+      wx = hunt.P.x + per.x * wig; wy = hunt.P.y + per.y * wig;
+      if (hunt.t > BUG.sheets.gone.n / BUG.sheets.gone.fps + 0.5) {
+        flipRot(); play("pano");
+        const off = 260 * scale;
+        hunt.tx = wx < viewW / 2 ? -off : viewW + off; hunt.ty = wy + rnd(-120, 120);
+        hunt.phase = "exit"; hunt.t = 0;
+      }
+    } else if (hunt.phase === "exit") {                              // leva o pano embora e volta ao normal
+      if (moveTo(hunt.tx, hunt.ty, CONFIG.wallSpeed * 1.3, dt, true)) { endHunt(); play("cima"); enterView(); }
+    }
   }
+  function cleanLeave() {                                             // sai da tela pelo lado mais perto
+    hunt.phase = "leave";
+    const off = 260 * scale, sy = window.scrollY;
+    goTo(wx < viewW / 2 ? -off : viewW + off, clamp(wy, sy + 60, sy + innerHeight - 60));
+    hunt.arrive = cleanAway;
+  }
+  function cleanAway() { hunt.phase = "away"; hunt.t = 0; setMode("hunt"); play("cima"); }
+
   function endHunt() {
     if (hunt && hunt.symDropped && sym.state === "gone") Object.assign(sym, { state: "floor", rot: 0, vx: 0, vy: 0 });
     hunt = null; animHold = false;
-    if (fly && fly.st === "caught") fly = null;
-    if (!fly) flyWait = rnd(...FLY.every);
+    if (fly && fly.st === "caught") { fly = null; flyWait = rnd(...FLY.every); }
+    if (bug && bug.st === "caught") { bug = null; bugWait = rnd(...BUG.every); }
+  }
+  // a presa escapou (mata-moscas): ela desiste e volta ao normal
+  function abortHunt() {
+    if (!hunt || hunt.kind === "clean") return;
+    const m = mode, headDown = HEAD_DOWN.includes(anim);
+    if (hunt.prey === fly && fly) fly.frozen = false;
+    endHunt();
+    if (m === "climb") return;                                        // climbWeb volta pela parede sozinha (enterView)
+    if (m === "hunt") { if (headDown) flipRot(); play("cima"); walkAway(); }
   }
 
+  /* ---------- Mata-moscas (coletado na seção Sobre) ----------
+     Com ele, passar o mouse sobre um inseto mostra o mata-moscas; clicar dá a batida.
+     Mosca: sempre escapa voando rápido. Aranha: corre rápido demais, nunca é atingida.
+     Besouro: é esmagado (e a aranha vem limpar). */
+  const hasSwatter = () => !!window.__mataMoscas;
+  const swat = document.createElement("div");
+  swat.className = "swatter"; swat.hidden = true;
+  const swatImg = new Image(); swatImg.src = "assets/img/mata_moscas.webp"; swatImg.alt = "";
+  swat.append(swatImg);
+  document.body.append(swat);
+  let swX = -999, swY = -999, swMouse = true, swHold = 0, swallowClick = false, dash = 1;
+  addEventListener("pointermove", (e) => { swX = e.clientX; swY = e.clientY; swMouse = e.pointerType === "mouse"; }, { passive: true });
+  function swatTarget(x, y) {                                         // x, y na tela
+    const sy = window.scrollY;
+    if (fly && ["in", "idle", "walk", "pause", "out"].includes(fly.st) && Math.hypot(x - fly.x, y - (fly.y - sy)) < 110 * scale + 12) return "fly";
+    if (bug && ["walk", "idle", "flee", "tired", "out"].includes(bug.st) && Math.hypot(x - bug.x, y - (bug.y - sy)) < 125 * scale + 12) return "bug";
+    if ((onWall() || mode === "hunt") && Math.hypot(x - wx, y - (wy - sy)) < 130 * scale) return "spider";
+    if (onWeb() && Math.hypot(x - webX(), y - (pos - sy + (280 - ANCHOR.y) * scale)) < 110 * scale) return "spider";
+    return null;
+  }
+  function swatHit(tgt) {
+    if (tgt === "fly") {                                              // rápida demais: sempre escapa
+      if (hunt && hunt.prey === fly) abortHunt();
+      fly.frozen = false; flyAway(true);
+    } else if (tgt === "bug") {                                       // esmagado
+      if (hunt && hunt.prey === bug) abortHunt();
+      bug.st = "splat"; bugAnim("splat"); bug.wait = 12;
+    } else if (tgt === "spider") {                                    // desvia correndo, rápida demais para ser atingida
+      if (onWall() && !steal && !hunt && !exiting) { flee(); dash = 3.2; }
+      else if (webFree()) { vel = -2400; pos -= 30; if (mode !== "moving") setMode("moving"); }
+    }
+  }
+  addEventListener("pointerdown", (e) => {
+    if (!hasSwatter() || !layer.classList.contains("is-on")) return;
+    const tgt = swatTarget(e.clientX, e.clientY);
+    if (!tgt) return;
+    e.preventDefault(); e.stopPropagation();
+    swallowClick = true; setTimeout(() => (swallowClick = false), 500);
+    swX = e.clientX; swY = e.clientY; swHold = 0.45;
+    swatImg.animate([
+      { transform: "rotate(-22deg) scale(1)" },
+      { transform: "rotate(-6deg) scale(.82)", offset: 0.4 },
+      { transform: "rotate(-24deg) scale(1.02)", offset: 0.75 },
+      { transform: "rotate(-22deg) scale(1)" }
+    ], { duration: 240, easing: "ease-out" });
+    if (tgt === "bug") setTimeout(() => bug && ["walk", "idle", "flee", "tired", "out"].includes(bug.st) && swatHit("bug"), 90);   // no impacto
+    else swatHit(tgt);                                                // mosca e aranha fogem antes da batida
+  }, true);
+  addEventListener("click", (e) => { if (swallowClick) { e.preventDefault(); e.stopPropagation(); swallowClick = false; } }, true);
+  function drawSwatter(dt) {
+    swHold = Math.max(0, swHold - dt);
+    const on = hasSwatter() && layer.classList.contains("is-on") && (swHold > 0 || (swMouse && !!swatTarget(swX, swY)));
+    swat.hidden = !on;
+    document.documentElement.classList.toggle("swat-on", on);
+    if (on) swat.style.transform = `translate(${swX}px, ${swY}px)`;
+  }
+  window.__besouro = (chase) => { if (!bug) spawnBug(); if (chase !== undefined) bug.chase = !!chase; return bug && bug.st; };
+  window.__besouroEstado = () => ({ bug: bug && { st: bug.st, x: Math.round(bug.x), y: Math.round(bug.y), rot: +bug.rot.toFixed(2) },
+    hunt: hunt && hunt.kind + ":" + hunt.phase, mode, anim, wx: Math.round(wx), wy: Math.round(wy) });
+  window.__esmagar = () => { if (bug) swatHit("bug"); return bug && bug.st; };
   function drawFly() {
     const show = !!fly && fly.st !== "caught" && layer.classList.contains("is-on") && !!flyImgs[fly.a];
     flyCanvas.hidden = !show;
@@ -1135,6 +1412,7 @@
 
   /* ---------- Início ---------- */
   Object.entries(FLY.sheets).forEach(([k, s]) => load(s.src).then((img) => (flyImgs[k] = img)).catch(() => {}));
+  Object.entries(BUG.sheets).forEach(([k, s]) => load(s.src).then((img) => (bugImgs[k] = img)).catch(() => {}));
   Promise.all(Object.entries(SHEETS).map(([k, s]) => load(s.src).then((img) => [k, img])))
     .then((pairs) => {
       sheets = Object.fromEntries(pairs);
@@ -1149,7 +1427,7 @@
         (function loop(now) {
           const dt = Math.min(0.05, (now - last) / 1000);
           last = now;
-          update(dt); updateFly(dt); maybeHunt(); updateHung(dt); advance(dt); draw(); drawFly();
+          update(dt); updateFly(dt); updateBug(dt); maybeHunt(); updateHung(dt); advance(dt); draw(); drawFly(); drawBug(); drawSwatter(dt);
           requestAnimationFrame(loop);
         })(last);
       }, delay);

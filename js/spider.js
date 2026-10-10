@@ -881,8 +881,8 @@
     sheets: {
       idle:  { src: S + "besouro_idle.webp",  n: 12, cols: 8, fw: 251, fh: 216, cx: 125.4, cy: 91.8,  fps: 9,  loop: true },
       run:   { src: S + "besouro_run.webp",   n: 14, cols: 8, fw: 251, fh: 216, cx: 125.4, cy: 91.8,  fps: 60, loop: true },
-      splat: { src: S + "besouro_splat.webp", n: 6,  cols: 6, fw: 448, fh: 480, cx: 211.8, cy: 244.2, fps: 5,  loop: true },
-      gone:  { src: S + "besouro_gone.webp",  n: 12, cols: 8, fw: 448, fh: 480, cx: 211.8, cy: 244.2, fps: 5,  loop: false }
+      splat: { src: S + "besouro_splat.webp", n: 6,  cols: 6, fw: 448, fh: 480, cx: 211.8, cy: 244.2, fps: 5,  loop: true,  z: 0.55 },   // z: mancha menor que o desenho original
+      gone:  { src: S + "besouro_gone.webp",  n: 12, cols: 8, fw: 448, fh: 480, cx: 211.8, cy: 244.2, fps: 5,  loop: false, z: 0.55 }
     },
     teia: { src: S + "besouro_teia.webp", w: 113, h: 185 }
   };
@@ -974,7 +974,7 @@
     const show = !!bug && bug.st !== "caught" && layer.classList.contains("is-on") && !!bugImgs[bug.a];
     bugCanvas.hidden = !show;
     if (!show) return;
-    const sh = BUG.sheets[bug.a], s = BUG.k * scale;
+    const sh = BUG.sheets[bug.a], s = BUG.k * scale * (sh.z || 1);
     const key = `${scale}|${dpr}`;
     if (key !== bugCanvasKey) {
       bugCanvasKey = key;

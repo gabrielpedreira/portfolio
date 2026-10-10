@@ -278,6 +278,11 @@
     msg.dataset.i18n = "about.swatterGot"; msg.textContent = t("about.swatterGot");
     swBtn.addEventListener("animationend", () => (swBtn.hidden = true), { once: true });
   });
+  // a caixa inteira funciona como botão (não só a imagem)
+  [["#scissors", scBtn], ["#swatterBox", swBtn]].forEach(([sel, btn]) => {
+    const box = $(sel);
+    box?.addEventListener("click", (e) => { if (!box.classList.contains("is-got") && !e.target.closest(".scissors__btn")) btn?.click(); });
+  });
   // logo "GP." volta para a home: fecha a categoria aberta e sobe para o topo
   $(".nav__logo")?.addEventListener("click", (e) => {
     e.preventDefault();

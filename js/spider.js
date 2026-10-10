@@ -50,7 +50,7 @@
     returnAfter: 7000,    // ms depois de sumir para voltar pela parede
     wallSpeed: 310,       // px/s andando na parede
     // escala de cada animação em relação à teia (ajuste fino visual)
-    size: { brava: 0.68, empe: 0.68, virada: 0.68, andando: 0.5, cima: 1.0, parede: 1.05, wppteia: 0.82, espreita: 1, ataque: 1, levando: 1, levando_b: 1, limpando: 1, pano: 1, apagando: 1, pichando: 1 },
+    size: { brava: 0.68, empe: 0.68, virada: 0.68, andando: 0.5, cima: 1.0, parede: 1.05, wppteia: 0.82, espreita: 1, ataque: 1, levando: 1, levando_b: 1, levando_bt: 1, limpando: 1, pano: 1, apagando: 1, pichando: 1 },
     wppAfter: 120000,     // ms pendurada sem interação até buscar o WhatsApp (2 min)
     wallWppAfter: 180000, // ms andando na parede até sair e buscar o WhatsApp (3 min)
     shootSpeed: 520,      // px/s do fio descendo no disparo (devagar)
@@ -90,6 +90,7 @@
     ataque:         { src: S + "ataque_mosca.webp",     frames: 16, fps: 8,  loop: false },
     levando:        { src: S + "levando_mosca.webp",    frames: 4,  fps: 6,  loop: true },
     levando_b:      { src: S + "levando_besouro.webp",  frames: 4,  fps: 6,  loop: true },
+    levando_bt:     { src: S + "levando_besouro_tras.webp", frames: 4, fps: 6, loop: true },   // besouro pego por trás
     limpando:       { src: S + "limpando.webp",         frames: 8,  fps: 6,  loop: true },   // faxina do besouro esmagado (cabeça para baixo)
     pano:           { src: S + "trazendo_pano.webp",    frames: 10, fps: 21, loop: true },   // andando com os panos (cabeça para cima)
     apagando:       { src: S + "apagando.webp",         frames: 8,  fps: 6,  loop: true },   // fúria: apagando as letras
@@ -104,7 +105,7 @@
     brava: { x: 405, y: 459 }, empe: { x: 405, y: 459 }, virada: { x: 405, y: 459 }, andando: { x: 400, y: 500 },
     cima: { x: 413, y: 263 }, parede: { x: 401, y: 205 },
     espreita: { x: 379, y: 250 }, ataque: { x: 379, y: 250 }, levando: { x: 379, y: 184 },
-    levando_b: { x: 379, y: 174 }, limpando: { x: 379, y: 250 }, pano: { x: 400, y: 262 },
+    levando_b: { x: 379, y: 174 }, levando_bt: { x: 379, y: 174 }, limpando: { x: 379, y: 250 }, pano: { x: 400, y: 262 },
     apagando: { x: 379, y: 250 }, pichando: { x: 379, y: 174 }
   };
   const BBOX = { brava: [201,166,609,459], cima: [216,58,611,468], parede: [205,26,598,384] };
@@ -904,6 +905,8 @@
   if (params.has("besouro")) BUG.first = [Number(params.get("besouro")) * 1000 || 3000, Number(params.get("besouro")) * 1000 || 3000];
   // no "levando_besouro" o besouro fica com o centro em (−24, 185) do ponto de referência, virado −73°
   const LEV_B = { x: -24, y: 185, ang: -1.27 };
+  // no "levando_besouro_tras" (pego por trás) o besouro fica à frente dela, virado para o mesmo lado: centro em (−9, 195)
+  const LEV_BT = { x: -9, y: 195, ang: Math.PI };
   const CLEAN_REACH = 190;           // os panos ficam ~190 unidades à frente do corpo no "limpando"
   const bugCanvas = document.createElement("canvas");
   bugCanvas.className = "spider-sprite spider-bug";
@@ -1008,7 +1011,7 @@
   /* ---------- Caçada (mosca ou besouro) e faxina ---------- */
   const onWall = () => mode === "wallWalk" || mode === "wallIdle";
   const webFree = () => ["idle", "moving", "stopping", "pointing"].includes(mode);
-  const HEAD_DOWN = ["espreita", "ataque", "levando", "levando_b", "limpando"];
+  const HEAD_DOWN = ["espreita", "ataque", "levando", "levando_b", "levando_bt", "limpando"];
 
   // a aranha vê um inseto? (os dois na mesma tela)
   function maybeHunt() {
@@ -1019,7 +1022,7 @@
     if (fly && ["idle", "walk", "pause"].includes(fly.st) && onScreen(fly.y)) { kind = "fly"; prey = fly; }
     else if (bug && ["walk", "idle"].includes(bug.st) && onScreen(bug.y) && bug.x > 30 && bug.x < viewW - 30) { kind = "bug"; prey = bug; }
     if (!prey) return;
-    const h = { kind, prey, lev: kind === "bug" ? LEV_B : LEV };
+    const h = { kind, prey, lev: kind === "bug" ? LEV_BT : LEV };
     if (onWall()) {
       if (exiting || !onScreen(wy, -40)) return;
       if (steal) { if (steal.phase !== "go") return; steal = null; }   // ainda indo buscar um botão: desiste dele
@@ -1111,6 +1114,13 @@
     return false;
   }
 
+  function capturePrey() {
+    hunt.prey.st = "caught"; play(hunt.kind === "bug" ? "levando_bt" : "levando");
+    const off = 320 * scale, sy = window.scrollY;
+    hunt.tx = wx < viewW / 2 ? -off : viewW + off;
+    hunt.ty = wy - sy < innerHeight / 2 ? sy - off : sy + innerHeight + off;
+    hunt.phase = "carry"; hunt.t = 0;
+  }
   function updateHunt(dt) {
     hunt.t += dt;
     const p = hunt.prey;
@@ -1122,8 +1132,19 @@
       if (hunt.t >= hunt.chaseT) {                                    // cansando: perde o rumo e vai para o meio da tela
         p.tiring = true;
         const sy = window.scrollY, inside = p.x > viewW * 0.25 && p.x < viewW * 0.75 && p.y > sy + innerHeight * 0.25 && p.y < sy + innerHeight * 0.75;
-        if (inside || hunt.t >= hunt.chaseT + 8) { p.st = "tired"; p.tiring = false; bugAnim("idle"); beginStalk(); }   // cansou: para
+        // perto e por trás dele: salta direto na traseira (sem parar nem espreitar)
+        const behind = ((wx - p.x) * Math.sin(p.rot) - (wy - p.y) * Math.cos(p.rot)) / (d || 1) < -0.5;
+        if ((inside && behind && d < 260) || hunt.t >= hunt.chaseT + 8) {
+          p.tiring = false;
+          hunt.phase = "pounce"; hunt.t = 0; hunt.from = { x: wx, y: wy };
+          flipRot(); play("ataque"); frame = 9; frameTime = 0;           // só os quadros do salto
+        }
       }
+    } else if (hunt.phase === "pounce") {                            // bote em movimento: cai nas costas do besouro
+      const g = huntGeom(), u = clamp(hunt.t / 0.6, 0, 1), e = 1 - Math.pow(1 - u, 3);
+      wx = hunt.from.x + (g.Pf.x - hunt.from.x) * e; wy = hunt.from.y + (g.Pf.y - hunt.from.y) * e;
+      rot += angDiff(g.rf, rot) * Math.min(1, dt * 10);
+      if (u >= 1) { rot = g.rf; capturePrey(); }
     } else if (hunt.phase === "stalk") {
       facePrey(dt, 5);
       if (hunt.pause > 0) { hunt.pause -= dt; animHold = true; return; }   // paradinha, olhando a presa
@@ -1144,13 +1165,7 @@
       rot = hunt.r0 + angDiff(g.rf, hunt.r0) * Math.min(1, hunt.t / 0.9);
       const u = clamp((hunt.t - 9 / 8) / (5 / 8), 0, 1), e = 1 - Math.pow(1 - u, 3);
       wx = g.Ps.x + (g.Pf.x - g.Ps.x) * e; wy = g.Ps.y + (g.Pf.y - g.Ps.y) * e;
-      if (hunt.t >= 14 / 8) {                                         // pegou
-        p.st = "caught"; play(hunt.kind === "bug" ? "levando_b" : "levando");
-        const off = 320 * scale, sy = window.scrollY;
-        hunt.tx = wx < viewW / 2 ? -off : viewW + off;
-        hunt.ty = wy - sy < innerHeight / 2 ? sy - off : sy + innerHeight + off;
-        hunt.phase = "carry"; hunt.t = 0;
-      }
+      if (hunt.t >= 14 / 8) capturePrey();                            // pegou
     } else if (hunt.phase === "carry") {                             // leva a presa para fora da tela por um canto
       if (hunt.t < 0.5) return;                                      // segura a presa um instante
       if (moveTo(hunt.tx, hunt.ty, CONFIG.wallSpeed * 1.25, dt, false)) { hunt.phase = "wrap"; hunt.t = 0; }

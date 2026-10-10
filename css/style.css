@@ -811,3 +811,12 @@ x-e.is-erased { opacity: 0; visibility: hidden; transition: opacity .35s ease, v
 .gfx-layer { position: absolute; left: 0; top: 0; width: 0; height: 0; z-index: 57; pointer-events: none; }
 .gfx-layer img { position: absolute; max-width: none; pointer-events: none; }
 .hero__photo img.photo-pix { position: absolute; left: 0; top: 0; z-index: 1; opacity: 0; pointer-events: none; }
+
+/* tesoura e mata-moscas: a caixa inteira é clicável */
+.scissors:not(.is-got) { cursor: pointer; transition: border-color .25s, background .25s, box-shadow .25s, transform .25s; }
+.scissors:not(.is-got):hover { border-color: rgba(232,165,90,.8); border-style: solid; transform: translateY(-2px);
+  background: linear-gradient(90deg, rgba(232,165,90,.14), rgba(232,165,90,.03) 75%); box-shadow: 0 8px 24px rgba(0,0,0,.35), 0 0 0 1px rgba(232,165,90,.15); }
+.scissors:not(.is-got):hover .scissors__btn { transform: translateY(-6px) rotate(-12deg) scale(1.08); animation-play-state: paused;
+  filter: drop-shadow(0 0 10px rgba(232,165,90,.65)) drop-shadow(0 0 22px rgba(232,165,90,.3)); }
+.scissors:not(.is-got):active { transform: translateY(0) scale(.99); }
+.scissors.is-got { cursor: default; }

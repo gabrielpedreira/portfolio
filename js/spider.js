@@ -50,7 +50,7 @@
     returnAfter: 7000,    // ms depois de sumir para voltar pela parede
     wallSpeed: 310,       // px/s andando na parede
     // escala de cada animação em relação à teia (ajuste fino visual)
-    size: { brava: 0.68, empe: 0.68, virada: 0.68, andando: 0.5, cima: 1.0, parede: 1.05, wppteia: 0.82, espreita: 1, ataque: 1, levando: 1, levando_b: 1, limpando: 1, pano: 1 },
+    size: { brava: 0.68, empe: 0.68, virada: 0.68, andando: 0.5, cima: 1.0, parede: 1.05, wppteia: 0.82, espreita: 1, ataque: 1, levando: 1, levando_b: 1, limpando: 1, pano: 1, apagando: 1, pichando: 1 },
     wppAfter: 120000,     // ms pendurada sem interação até buscar o WhatsApp (2 min)
     wallWppAfter: 180000, // ms andando na parede até sair e buscar o WhatsApp (3 min)
     shootSpeed: 520,      // px/s do fio descendo no disparo (devagar)
@@ -92,6 +92,8 @@
     levando_b:      { src: S + "levando_besouro.webp",  frames: 4,  fps: 6,  loop: true },
     limpando:       { src: S + "limpando.webp",         frames: 8,  fps: 6,  loop: true },   // faxina do besouro esmagado (cabeça para baixo)
     pano:           { src: S + "trazendo_pano.webp",    frames: 10, fps: 21, loop: true },   // andando com os panos (cabeça para cima)
+    apagando:       { src: S + "apagando.webp",         frames: 8,  fps: 6,  loop: true },   // fúria: apagando as letras
+    pichando:       { src: S + "pichando.webp",         frames: 6,  fps: 6,  loop: true },   // fúria: pichando com spray
     wpp:            { src: S + "wpp.png",               frames: 8,  fps: 8,  loop: true },
     wppteia:        { src: S + "wppteia.png",           frames: 4,  fps: 5,  loop: true },  // símbolo preso na teia (canvas próprio)
     simbolo:        { src: S + "simbolo_wpp.png",       frames: 1,  fps: 1,  loop: true, still: true }  // símbolo solto (estático)
@@ -102,7 +104,8 @@
     brava: { x: 405, y: 459 }, empe: { x: 405, y: 459 }, virada: { x: 405, y: 459 }, andando: { x: 400, y: 500 },
     cima: { x: 413, y: 263 }, parede: { x: 401, y: 205 },
     espreita: { x: 379, y: 250 }, ataque: { x: 379, y: 250 }, levando: { x: 379, y: 184 },
-    levando_b: { x: 379, y: 174 }, limpando: { x: 379, y: 250 }, pano: { x: 400, y: 262 }
+    levando_b: { x: 379, y: 174 }, limpando: { x: 379, y: 250 }, pano: { x: 400, y: 262 },
+    apagando: { x: 379, y: 250 }, pichando: { x: 379, y: 174 }
   };
   const BBOX = { brava: [201,166,609,459], cima: [216,58,611,468], parede: [205,26,598,384] };
 
@@ -359,6 +362,7 @@
     if (mode === "pull" || mode === "holdStart" || mode === "drop") return;   // presa no fio
     if (mode === "climb") { climbWeb(dt); return; }                          // sobe a teia para caçar a mosca
     if (mode === "hunt") { updateHunt(dt); return; }
+    if (mode === "rage") { updateRage(dt); return; }
     if (mode === "angryUp") {
       const waited = timer >= CONFIG.stayAfterCut;                           // penduradabrava parada 4 s
       const visible = pos - window.scrollY + (460 - ANCHOR.y) * scale > -10;
@@ -421,14 +425,14 @@
 
     if (mode === "wallWalk" || mode === "wallIdle") {
       wallAcc += dt * 1000;
-      if (!exiting && !steal && !hunt && wallAcc >= CONFIG.wallWppAfter && sym.state === "floor") exitWall();
+      if (!exiting && !steal && !hunt && !rage && wallAcc >= CONFIG.wallWppAfter && sym.state === "floor") exitWall();
       maybeSteal(dt);
       updateSteal(dt);
     }
     if (mode === "wallWalk") { walkPath(dt); return; }
     if (mode === "wallIdle") {
       const sy = window.scrollY, m = 40;
-      if (!steal && !hunt && (wy < sy - m || wy > sy + innerHeight + m)) enterView();   // sumiu da tela → vem andando
+      if (!steal && !hunt && !rage && (wy < sy - m || wy > sy + innerHeight + m)) enterView();   // sumiu da tela → vem andando
       return;
     }
 
@@ -488,7 +492,7 @@
 
   // mouse em cima: foge para um lado aleatório, sem sair da tela
   function flee() {
-    if (exiting || steal || hunt) return;
+    if (exiting || steal || hunt || rage) return;
     const sy = window.scrollY, h = halfBody();
     for (let i = 0; i < 12; i++) {
       const a = rnd(0, Math.PI * 2), d = rnd(160, 320);
@@ -566,7 +570,7 @@
   const inView = (y, m = 80) => y > window.scrollY - m && y < window.scrollY + innerHeight + m;
 
   function maybeSteal(dt) {
-    if (steal || hunt || exiting || mode !== "wallIdle") return;
+    if (steal || hunt || rage || exiting || mode !== "wallIdle") return;
     const sy = window.scrollY;
     if (wy < sy || wy > sy + innerHeight) return;                     // só quando ela está à vista
     stealWait -= dt * 1000;
@@ -863,7 +867,7 @@
         break;
       case "splat":                                                   // esmagada: espera a faxina (ou some sozinha)
         fly.wait -= dt;
-        if (fly.wait <= 0 && !(hunt && hunt.kind === "clean")) vanishFly();
+        if (fly.wait <= 0 && !(hunt && hunt.kind === "clean") && !rage) vanishFly();
         break;
       case "gone":
         if (fly.f >= FLY.sheets.gone.n - 1) { fly.fade = (fly.fade ?? 1) - dt * 3; if (fly.fade <= 0) { fly = null; flyWait = rnd(...FLY.every); } }
@@ -956,7 +960,7 @@
       case "flee": fleeBug(dt); break;
       case "splat":                                                   // esmagado: espera a faxina (ou some sozinho)
         bug.wait -= dt;
-        if (bug.wait <= 0 && !(hunt && hunt.kind === "clean")) vanishBug();
+        if (bug.wait <= 0 && !(hunt && hunt.kind === "clean") && !rage) vanishBug();
         break;
       case "gone":
         if (bug.f >= BUG.sheets.gone.n - 1) { bug.fade -= dt * 3; if (bug.fade <= 0) { bug = null; bugWait = rnd(...BUG.every); } }
@@ -1008,7 +1012,7 @@
 
   // a aranha vê um inseto? (os dois na mesma tela)
   function maybeHunt() {
-    if (hunt) return;
+    if (hunt || rage) return;                                         // com raiva não caça nem limpa
     if (bug && bug.st === "splat") { maybeClean(bug); return; }       // sujeira primeiro
     if (fly && fly.st === "splat") { maybeClean(fly); return; }
     let kind = null, prey = null;
@@ -1054,7 +1058,9 @@
     pos -= 560 * dt;
     if (pos - window.scrollY + (460 - ANCHOR.y) * scale < -20) {     // sumiu por cima → desce pela parede
       wx = clampX(webX() + 10); wy = window.scrollY - 150 * scale; rot = Math.PI;
-      if (hunt && hunt.afterClimb) hunt.afterClimb(); else enterView();
+      if (hunt && hunt.afterClimb) hunt.afterClimb();
+      else if (rage && rage.phase === "climb") { setMode("rage"); rage.phase = "away"; rage.t = 0; play("cima"); }
+      else enterView();
     }
   }
 
@@ -1243,6 +1249,8 @@
       if (hunt && hunt.prey === bug) abortHunt();
       bug.st = "splat"; bugAnim("splat"); bug.wait = 12;
     } else if (tgt === "spider") {                                    // desvia correndo, rápida demais para ser atingida
+      if (rage) return;
+      if (++spiderSwats > RAGE.swats) { startRage(); return; }        // passou de 10 tentativas: fúria
       if (onWall() && !steal && !hunt && !exiting) { flee(); dash = 3.2; }
       else if (webFree()) { vel = -2400; pos -= 30; if (mode !== "moving") setMode("moving"); }
     }
@@ -1274,6 +1282,346 @@
     document.documentElement.classList.toggle("swat-on", on);
     if (on) swat.style.transform = `translate(${swX}px, ${swY}px)`;
   }
+  /* ---------- Fúria (mais de 10 tentativas de acertar a aranha com o mata-moscas) ----------
+     Ela sai da tela, volta com o pano e anda pela página APAGANDO LETRAS no ponto onde está;
+     sobe e picha o rosto do desenvolvedor (a foto pichada aparece por cima aos poucos) e faz as
+     4 pichações em lugares diferentes. Para quando usou todas, pichou o rosto e apagou até 30% do texto.
+     Depois sai, espera ~7 s, volta com o pano e limpa tudo (pichações, insetos esmagados, rosto);
+     o texto reaparece aos poucos. Alguns segundos depois volta ao normal.
+     Durante a fúria ela não caça nem limpa. Depuração: window.__furia() */
+  const RAGE = { swats: 10, eraseMax: 0.3, eraseRate: 30, eraseCap: 22, gk: 1.5, waitBack: 7 };
+  const PIX = [[314, 316], [231, 241], [237, 198], [565, 401]].map(([w, h], i) => ({ src: `assets/img/pichacao${i + 1}.webp`, w, h }));
+  const SPRAY = { x: -129, y: 190 };                                  // jato do spray no "pichando" (relativo ao corpo)
+  const CLOTH = { x: -26, y: 190 }, CLOTH_SPAN = [-112, 61];          // panos no "apagando"/"limpando"
+  const HEAD_UP = ["cima", "pano"];
+  const ERASE_SKIP = "script,style,noscript,#spider-layer,.spider-steal,.swatter,.gfx-layer,.game,.gwarn,.gmenu";
+  const gfxLayer = document.createElement("div");
+  gfxLayer.className = "gfx-layer";
+  document.body.append(gfxLayer);
+  let rage = null, spiderSwats = 0;
+  const rotOff = (o, r, k) => ({ x: (o.x * Math.cos(r) - o.y * Math.sin(r)) * k, y: (o.x * Math.sin(r) + o.y * Math.cos(r)) * k });
+  const kSp = () => scale;                                            // escala das animações novas (tamanho 1)
+  function playKeep(name) {                                           // troca de desenho sem virar o corpo
+    if (HEAD_UP.includes(anim) !== HEAD_UP.includes(name)) flipRot();
+    play(name);
+  }
+  const heroImg = () => document.querySelector(".hero__photo img:not(.photo-pix)");
+
+  function countLetters() {
+    let n = 0;
+    const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    for (let t = w.nextNode(); t; t = w.nextNode()) {
+      const p = t.parentElement;
+      if (!p || p.closest(ERASE_SKIP) || !p.getClientRects().length) continue;
+      n += (t.data.match(/\S/g) || []).length;
+    }
+    return n;
+  }
+  function caretAt(x, y) {
+    if (document.caretRangeFromPoint) { const r = document.caretRangeFromPoint(x, y); return r && { node: r.startContainer, off: r.startOffset }; }
+    if (document.caretPositionFromPoint) { const p = document.caretPositionFromPoint(x, y); return p && { node: p.offsetNode, off: p.offset }; }
+    return null;
+  }
+  const blockLetters = new WeakMap();
+  // apaga a letra que estiver exatamente sob o ponto (x, y) da tela
+  function eraseAt(x, y) {
+    const c = caretAt(x, y);
+    if (!c || !c.node || c.node.nodeType !== 3) return false;
+    const n = c.node, par = n.parentElement;
+    if (!par || par.localName === "x-e" || par.closest(ERASE_SKIP)) return false;
+    if (/flex|grid/.test(getComputedStyle(par).display)) return false;   // em flex/grid cada pedaço viraria um item (mexe no layout)
+    const blk = par.closest("h1, h2, h3, p, li, dd, dt, figcaption, a, button") || par;
+    if (!blockLetters.has(blk)) blockLetters.set(blk, (blk.textContent.match(/\S/g) || []).length);
+    if (blk.querySelectorAll("x-e").length >= blockLetters.get(blk) * 0.45) return false;   // cada texto perde no máximo ~45%
+    for (const j of [c.off, c.off - 1]) {
+      if (j < 0 || j >= n.data.length || /\s/.test(n.data[j])) continue;
+      const rg = document.createRange(); rg.setStart(n, j); rg.setEnd(n, j + 1);
+      const b = rg.getBoundingClientRect();
+      if (x < b.left - 2 || x > b.right + 2 || y < b.top - 2 || y > b.bottom + 2) continue;
+      const mid = j ? n.splitText(j) : n;
+      if (mid.data.length > 1) mid.splitText(1);
+      const sp = document.createElement("x-e");                       // elemento próprio: nenhuma regra "x span" do site pega nele
+      mid.replaceWith(sp); sp.append(mid);
+      requestAnimationFrame(() => sp.classList.add("is-erased"));
+      rage.spans.push(sp);
+      return true;
+    }
+    return false;
+  }
+  function eraseHere(dt) {                                            // panos passando: apagam o que estiver embaixo
+    if (anim !== "apagando" || rage.spans.length >= rage.cap) return;
+    rage.budget = Math.min(6, rage.budget + dt * RAGE.eraseRate);
+    const k = kSp(), sy = window.scrollY;
+    for (let i = 0; i < 10 && rage.budget >= 1 && rage.spans.length < rage.cap; i++) {
+      const o = rotOff({ x: rnd(...CLOTH_SPAN), y: CLOTH.y + rnd(-18, 18) }, rot, k);
+      if (eraseAt(wx + o.x, wy + o.y - sy)) rage.budget -= 1;
+    }
+  }
+  function restoreSpans(n) {                                          // devolve algumas letras (aparecem aos poucos)
+    for (let i = 0; i < n && rage.hidden.length; i++) {
+      const sp = rage.hidden.splice((Math.random() * rage.hidden.length) | 0, 1)[0];
+      sp.classList.remove("is-erased");
+    }
+  }
+  function unwrapSpans() {
+    for (const sp of rage.spans) {
+      if (!sp.isConnected) continue;
+      const p = sp.parentNode, t = sp.firstChild;
+      if (t) sp.replaceWith(t); else sp.remove();
+      p.normalize();
+    }
+  }
+
+  // um trecho de texto visível para "esfregar" com os panos (uma linha, da esquerda para a direita ou ao contrário)
+  function pickLine() {
+    const sy = window.scrollY, vh = innerHeight, out = [];
+    for (const el of document.querySelectorAll("h1, h2, h3, p, li, dd, dt, figcaption, .btn, .card__title")) {
+      if (el.closest(ERASE_SKIP) || !el.textContent.trim() || /flex|grid/.test(getComputedStyle(el).display)) continue;
+      const letters = (el.textContent.match(/\S/g) || []).length;
+      if (el.querySelectorAll("x-e").length > letters * 0.4) continue;   // já bem apagado: procura outro texto
+      const r = el.getBoundingClientRect();
+      if (r.bottom < 70 || r.top > vh - 40 || r.width < 20) continue;
+      out.push(el);
+    }
+    if (!out.length) return null;
+    const el = out[(Math.random() * out.length) | 0];
+    const rg = document.createRange(); rg.selectNodeContents(el);
+    const lines = [...rg.getClientRects()].filter((b) => b.width > 16 && b.top > 70 && b.bottom < vh - 30);
+    if (!lines.length) return null;
+    const b = lines[(Math.random() * lines.length) | 0], dir = Math.random() < 0.5 ? 1 : -1;
+    const y = b.top + b.height / 2 + sy, x0 = clamp(dir > 0 ? b.left : b.right, 20, viewW - 20), x1 = clamp(dir > 0 ? b.right : b.left, 20, viewW - 20);
+    return { dir, a: { x: x0, y }, b: { x: x1, y } };
+  }
+  // ponto livre na área visível para uma pichação
+  function pickWall(p) {
+    const sy = window.scrollY, k = RAGE.gk * scale, w = p.w * k, h = p.h * k;
+    const ph = heroImg()?.getBoundingClientRect();
+    let best = null;
+    for (let i = 0; i < 40; i++) {
+      const c = { x: rnd(Math.max(w / 2 + 10, viewW * 0.12), Math.min(viewW - w / 2 - 10, viewW * 0.88)), y: sy + rnd(innerHeight * 0.2, innerHeight * 0.8) };
+      const far = rage.gfx.every((g) => Math.hypot(g.x - c.x, g.y - c.y) > (g.w + w) * 0.45);
+      const offPhoto = !ph || c.x + w / 2 < ph.left || c.x - w / 2 > ph.right || c.y - sy + h / 2 < ph.top || c.y - sy - h / 2 > ph.bottom;
+      best = c;
+      if (far && offPhoto) break;
+    }
+    return { ...best, w, h };
+  }
+
+  // fila de tarefas da fúria
+  function rageTasks() {
+    const t = [{ type: "enter" }, { type: "sweep" }, { type: "sweep" }, { type: "face" }];
+    [...PIX.keys()].sort(() => Math.random() - 0.5).forEach((i) => t.push({ type: "sweep" }, { type: "gfx", i }));
+    t.push({ type: "eraseMore" });
+    return t;
+  }
+  function startRage() {
+    rage = { phase: "pending", t: 0, spans: [], hidden: [], gfx: [], budget: 0, total: countLetters() };
+    rage.cap = Math.floor(rage.total * RAGE.eraseMax);
+  }
+  // fica esperando até poder largar o que está fazendo
+  function rageTick() {
+    if (!rage || rage.phase !== "pending") return;
+    if (hunt) { if (hunt.kind !== "clean" && ["approach", "chase", "stalk"].includes(hunt.phase)) abortHunt(); else return; }
+    if (steal) return;
+    if (onWall()) { if (mode === "wallIdle") rot = 0; path = []; dash = 1; setMode("rage"); rageLeave("away"); }
+    else if (webFree()) {
+      if (variant === "hold" || variant === "wpp") {
+        if (variant === "wpp") {
+          const ks = scale * CONFIG.size.wppteia;
+          sym.x = webX() + (396 - ANCHOR.x) * scale;
+          sym.y = pos + (416 - ANCHOR.y) * scale - (340 - APEX.y) * ks;
+        }
+        Object.assign(sym, { state: "drop", t: 0, rot: 0, vx: 0, vy: 0, rotV: -CONFIG.symSpin, g: CONFIG.dropGravity, maxV: 2600 });
+        rage.symDropped = true; variant = "normal";
+      }
+      bounceA = 0; vel = 0; rage.phase = "climb"; setMode("climb");
+    }
+  }
+  function rageLeave(next) {                                          // sai da tela pelo lado mais perto
+    const off = 280 * scale, sy = window.scrollY;
+    rage.phase = "leave"; rage.next = next;
+    rage.tx = wx < viewW / 2 ? -off : viewW + off; rage.ty = clamp(wy, sy + 60, sy + innerHeight - 60);
+    playKeep("cima");
+  }
+  function enterFromSide(near) {                                      // reaparece fora da tela, do lado mais perto do alvo
+    const off = 260 * scale, sy = window.scrollY;
+    wx = (near ? near.x : wx) < viewW / 2 ? -off : viewW + off;
+    wy = clamp(near ? near.y : sy + innerHeight / 2, sy + 80, sy + innerHeight - 80);
+  }
+
+  function updateRage(dt) {
+    const r = rage; r.t += dt;
+    const k = kSp(), sy = window.scrollY;
+    if (r.phase === "leave") {
+      if (moveTo(r.tx, r.ty, CONFIG.wallSpeed * 1.8, dt, true)) { r.phase = r.next; r.t = 0; }
+      return;
+    }
+    if (r.phase === "away") {                                         // pega o pano
+      if (r.t < 1.6) return;
+      enterFromSide(null); playKeep("pano");
+      r.tasks = rageTasks(); r.task = null; r.phase = "run"; r.t = 0; r.eraseT = 0;
+      return;
+    }
+    if (r.phase === "run") return runTask(dt);
+    if (r.phase === "back") {                                         // fora da tela: espera ~7 s
+      if (r.t < RAGE.waitBack) return;
+      r.hidden = r.spans.filter((s) => s.isConnected);
+      r.clean = [...r.gfx.map((g) => ({ type: "gfx", g })), { type: "face" }];
+      if (bug && bug.st === "splat") r.clean.push({ type: "splat", o: bug });
+      if (fly && fly.st === "splat") r.clean.push({ type: "splat", o: fly });
+      r.restoreRate = r.hidden.length / Math.max(6, r.clean.length * 5.5);
+      r.restoreAcc = 0;
+      const first = r.clean[0].type === "face" ? faceCenter() : r.clean[0].g || r.clean[0].o;
+      enterFromSide(first); playKeep("pano");
+      r.phase = "clean"; r.task = null; r.t = 0;
+      return;
+    }
+    if (r.phase === "clean") return runClean(dt);
+    if (r.phase === "calm") {                                         // já calma, parada um instante
+      rot += angDiff(0, rot) * Math.min(1, dt * 3);
+      if (r.t > 3) {
+        unwrapSpans();
+        if (r.symDropped && sym.state === "gone") Object.assign(sym, { state: "floor", rot: 0, vx: 0, vy: 0 });
+        rage = null; spiderSwats = 0; rot = 0;
+        setMode("wallIdle");
+      }
+    }
+  }
+
+  function faceCenter() {
+    const im = heroImg(); if (!im) return null;
+    const b = im.getBoundingClientRect();
+    return { x: b.left + b.width / 2, y: b.top + window.scrollY + b.height * 0.42, rx: b.width * 0.3, ry: b.height * 0.28 };
+  }
+  function faceOverlay() {
+    let o = document.querySelector(".photo-pix");
+    if (!o) {
+      const im = heroImg(); if (!im) return null;
+      o = new Image(); o.src = "assets/img/gabriel_pichado.webp"; o.alt = ""; o.className = "photo-pix";
+      im.after(o);
+    }
+    return o;
+  }
+  // ponto do anel em volta do rosto: o jato (ou os panos) ficam sobre o rosto e ela do lado de fora, virada para o centro
+  function ringPose(fc, th, off) {
+    const S = { x: fc.x + fc.rx * Math.cos(th), y: fc.y + fc.ry * Math.sin(th) };
+    const r = Math.atan2(Math.cos(th), -Math.sin(th)), o = rotOff(off, r, kSp());
+    return { x: S.x - o.x, y: S.y - o.y, r };
+  }
+
+  function runTask(dt) {
+    const r = rage, k = kSp();
+    if (!r.task) {
+      r.task = r.tasks.shift();
+      if (!r.task) { rageLeave("back"); return; }                     // fez tudo: sai da tela
+      r.task.t = 0; r.task.step = 0;
+    }
+    const T = r.task; T.t += dt;
+    eraseHere(dt);
+    const done = () => (r.task = null);
+    if (T.type === "enter") {                                         // entra com o pano e começa a apagar
+      const tx = clamp(wx < viewW / 2 ? viewW * 0.22 : viewW * 0.78, 60, viewW - 60);
+      if (moveTo(tx, wy, CONFIG.wallSpeed * 1.3, dt, true)) { playKeep("apagando"); done(); }
+    } else if (T.type === "sweep" || T.type === "eraseMore") {        // esfrega uma linha de texto
+      if (T.type === "eraseMore") { r.eraseT += dt; if (r.spans.length >= r.cap || r.eraseT > RAGE.eraseCap) return done(); }
+      if (!T.line) {
+        T.line = pickLine();
+        if (!T.line && T.type === "eraseMore") return done();       // nada mais para apagar à vista
+        if (!T.line) { T.line = { dir: 1, a: { x: wx, y: wy }, b: { x: clamp(wx + rnd(-200, 200), 40, viewW - 40), y: wy + rnd(-150, 150) } }; }
+        T.r = -T.line.dir * Math.PI / 2;
+        const o = rotOff(CLOTH, T.r, k);
+        T.A = { x: T.line.a.x - o.x, y: T.line.a.y - o.y }; T.B = { x: T.line.b.x - o.x, y: T.line.b.y - o.y };
+      }
+      if (T.step === 0) { if (moveTo(T.A.x, T.A.y, CONFIG.wallSpeed * 1.6, dt, false)) { T.step = 1; T.before = r.spans.length; } }
+      else {
+        rot += angDiff(T.r, rot) * Math.min(1, dt * 6);
+        if (moveTo(T.B.x, T.B.y, 170, dt, false)) {
+          if (T.type === "sweep") return done();
+          T.fails = r.spans.length === T.before ? (T.fails || 0) + 1 : 0;   // duas passadas sem apagar nada: acabou o que dava
+          if (T.fails >= 2) return done();
+          T.line = null; T.step = 0;
+        }
+      }
+    } else if (T.type === "face") {                                   // sobe e picha o rosto, andando em volta dele
+      const fc = faceCenter(); if (!fc) return done();
+      const ov = faceOverlay(), im = heroImg();
+      const th0 = -Math.PI * 0.75, dur = 8.5;
+      if (T.step === 0) {
+        const p = ringPose(fc, th0, SPRAY);
+        if (moveTo(p.x, p.y, CONFIG.wallSpeed * 2, dt, false)) { T.step = 1; T.t = 0; playKeep("pichando"); }
+      } else {
+        const u = Math.min(1, T.t / dur), p = ringPose(fc, th0 + u * Math.PI * 2.2, SPRAY);
+        wx = p.x; wy = p.y; rot += angDiff(p.r, rot) * Math.min(1, dt * 6);
+        ov.style.opacity = u; im.style.opacity = 1 - u;
+        if (u >= 1) { playKeep("apagando"); done(); }
+      }
+    } else if (T.type === "gfx") {                                    // picha um desenho num lugar livre da tela
+      if (!T.g) {
+        const p = PIX[T.i], at = pickWall(p);
+        const el = new Image(); el.src = p.src; el.alt = "";
+        Object.assign(el.style, { width: at.w + "px", height: at.h + "px", left: at.x - at.w / 2 + "px", top: at.y - at.h / 2 + "px", opacity: 0 });
+        gfxLayer.append(el);
+        T.g = { ...at, el }; r.gfx.push(T.g);
+        T.r = rnd(-0.5, 0.5);
+        const o = rotOff(SPRAY, T.r, k); T.P = { x: at.x - o.x, y: at.y - o.y };
+      }
+      if (T.step === 0) { if (moveTo(T.P.x, T.P.y, CONFIG.wallSpeed * 1.6, dt, false)) { T.step = 1; T.t = 0; playKeep("pichando"); } }
+      else {
+        const dur = 3.6, u = Math.min(1, T.t / dur), g = T.g;
+        rot += angDiff(T.r, rot) * Math.min(1, dt * 4);
+        wx = T.P.x + Math.sin(T.t * 2.4) * g.w * 0.28; wy = T.P.y + Math.cos(T.t * 1.7) * g.h * 0.18;   // vai pintando o desenho todo
+        g.el.style.opacity = u;
+        if (u >= 1) { playKeep("apagando"); done(); }
+      }
+    }
+  }
+
+  function runClean(dt) {
+    const r = rage, k = kSp();
+    r.restoreAcc += dt * r.restoreRate;
+    if (r.restoreAcc >= 1) { const n = r.restoreAcc | 0; r.restoreAcc -= n; restoreSpans(n); }
+    if (!r.task) {
+      if (!r.clean.length) { restoreSpans(1e9); r.phase = "calm"; r.t = 0; playKeep("parede"); return; }
+      // o mais perto primeiro
+      const pos = (c) => (c.type === "face" ? faceCenter() : c.g || c.o);
+      r.clean.sort((a, b) => Math.hypot(pos(a).x - wx, pos(a).y - wy) - Math.hypot(pos(b).x - wx, pos(b).y - wy));
+      r.task = r.clean.shift(); r.task.t = 0; r.task.step = 0;
+      if (HEAD_UP.includes(anim) === false) playKeep("pano");
+    }
+    const T = r.task; T.t += dt;
+    if (T.type === "face") {
+      const fc = faceCenter(), ov = document.querySelector(".photo-pix"), im = heroImg();
+      if (!fc || !ov) { r.task = null; return; }
+      const th0 = Math.PI * 0.25, dur = 6;
+      if (T.step === 0) {
+        const p = ringPose(fc, th0, CLOTH);
+        if (moveTo(p.x, p.y, CONFIG.wallSpeed * 1.8, dt, true)) { T.step = 1; T.t = 0; playKeep("limpando"); }
+      } else {
+        const u = Math.min(1, T.t / dur), p = ringPose(fc, th0 + u * Math.PI * 2, CLOTH);
+        wx = p.x; wy = p.y; rot += angDiff(p.r, rot) * Math.min(1, dt * 6);
+        ov.style.opacity = 1 - u; im.style.opacity = u;
+        if (u >= 1) { ov.remove(); im.style.opacity = ""; playKeep("pano"); r.task = null; }
+      }
+      return;
+    }
+    const tgt = T.g || T.o;
+    if (T.type === "splat" && !tgt) { r.task = null; return; }
+    if (T.step === 0) {                                               // chega de frente com os panos
+      if (!T.P) { const dx = tgt.x - wx, dy = tgt.y - wy, d = Math.hypot(dx, dy) || 1; T.P = { x: tgt.x - dx / d * CLEAN_REACH * k, y: tgt.y - dy / d * CLEAN_REACH * k }; }
+      if (moveTo(T.P.x, T.P.y, CONFIG.wallSpeed * 1.5, dt, true)) {
+        T.step = 1; T.t = 0; playKeep("limpando");
+        if (T.type === "splat" && tgt.st === "splat") (tgt === bug ? vanishBug : vanishFly)();
+      }
+    } else {
+      const per = { x: Math.cos(rot), y: Math.sin(rot) }, wig = Math.sin(T.t * 6) * 10 * scale;
+      wx = T.P.x + per.x * wig; wy = T.P.y + per.y * wig;
+      const dur = T.type === "gfx" ? 2.4 : 2.6;
+      if (T.type === "gfx") T.g.el.style.opacity = Math.max(0, 1 - T.t / dur);
+      if (T.t >= dur) { if (T.type === "gfx") T.g.el.remove(); playKeep("pano"); r.task = null; }
+    }
+  }
+  window.__furia = () => { if (!rage) startRage(); return rage && rage.phase; };
+  window.__furiaEstado = () => rage && { phase: rage.phase, task: rage.task && rage.task.type, apagadas: rage.spans.length, cap: rage.cap, total: rage.total, gfx: rage.gfx.length, mode, anim };
   window.__besouro = (chase) => { if (!bug) spawnBug(); if (chase !== undefined) bug.chase = !!chase; return bug && bug.st; };
   window.__besouroEstado = () => ({ bug: bug && { st: bug.st, x: Math.round(bug.x), y: Math.round(bug.y), rot: +bug.rot.toFixed(2) },
     hunt: hunt && hunt.kind + ":" + hunt.phase, mode, anim, wx: Math.round(wx), wy: Math.round(wy) });
@@ -1340,11 +1688,11 @@
       threadHit.style.height = Math.max(0, y - 4) + "px";
       canvas.style.transform = `translate(${left}px, ${top}px) scaleY(${1 + off * 0.004})`;
     } else if (anim && REF[anim]) {
-      const wall = mode === "wallWalk" || mode === "wallIdle" || mode === "hunt";
+      const wall = mode === "wallWalk" || mode === "wallIdle" || mode === "hunt" || mode === "rage";
       const k = CONFIG.size[anim] || 1, ref = REF[anim];
       const cx = wall ? wx : gx, cy = (wall ? wy : gy) - sy;
       const squash = wall ? 0 : bounceOffset() * 0.006 + pet * 0.08;
-      const r = mode === "wallWalk" || mode === "hunt" || steal ? rot : 0;
+      const r = mode === "wallWalk" || mode === "hunt" || mode === "rage" || steal ? rot : 0;
       left = cx - ref.x * scale; top = cy - ref.y * scale;
       canvas.style.transformOrigin = `${ref.x * scale}px ${ref.y * scale}px`;
       canvas.style.transform =
@@ -1448,7 +1796,7 @@
         (function loop(now) {
           const dt = Math.min(0.05, (now - last) / 1000);
           last = now;
-          update(dt); updateFly(dt); updateBug(dt); maybeHunt(); updateHung(dt); advance(dt); draw(); drawFly(); drawBug(); drawSwatter(dt);
+          rageTick(); update(dt); updateFly(dt); updateBug(dt); maybeHunt(); updateHung(dt); advance(dt); draw(); drawFly(); drawBug(); drawSwatter(dt);
           requestAnimationFrame(loop);
         })(last);
       }, delay);

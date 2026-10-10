@@ -804,3 +804,10 @@ html.game-open { overflow: hidden; }
 html.swat-on, html.swat-on * { cursor: none !important; }
 .swatter-box .scissors__btn { height: 150px; }
 .swatter-box .scissors__btn img { transform: rotate(-14deg); }
+
+/* fúria da aranha: letras apagadas, pichações e foto pichada */
+x-e { transition: opacity .7s ease, visibility 0s; }   /* letra apagada pela aranha (elemento próprio) */
+x-e.is-erased { opacity: 0; visibility: hidden; transition: opacity .35s ease, visibility 0s linear .35s; }
+.gfx-layer { position: absolute; left: 0; top: 0; width: 0; height: 0; z-index: 57; pointer-events: none; }
+.gfx-layer img { position: absolute; max-width: none; pointer-events: none; }
+.hero__photo img.photo-pix { position: absolute; left: 0; top: 0; z-index: 1; opacity: 0; pointer-events: none; }

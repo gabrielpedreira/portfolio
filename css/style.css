@@ -776,3 +776,7 @@ html.game-open { overflow: hidden; }
 .steal-blob--anchor { width: 64px; margin-left: calc(64px * -0.4172); margin-top: calc(64px * 0.8589 * -0.1714); transform: rotate(180deg); }
 .spider-steal [hidden] { display: none !important; }   /* img{display:block} anulava o hidden: a teia da parede aparecia na aranha */
 .spider-steal { z-index: 58; }                         /* rede e fio sempre por baixo da aranha */
+
+/* mosca e carcaças penduradas (caçada da aranha) */
+.spider-fly { filter: drop-shadow(0 4px 6px rgba(0,0,0,.4)); }
+.steal-wrap > .fly-carcass { position: absolute; left: 0; top: 0; max-width: none; pointer-events: none; filter: drop-shadow(0 5px 8px rgba(0,0,0,.45)); }

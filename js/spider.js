@@ -347,6 +347,7 @@
 
   /* ---------- Física / estados ---------- */
   function update(dt) {
+    growK += (1 - growK) * Math.min(1, dt * 7);
     clock += dt; timer += dt * 1000; bounceT += dt;
     if (pet > 0) pet = Math.max(0, pet - dt * 2.4);
 
@@ -486,9 +487,9 @@
   // depois de 3 min na parede: anda para fora da tela pelo lado mais perto
   function exitWall() {
     exiting = true;
+    // sai pelo topo, na coluna da teia (margem esquerda): é dali que ela desce de novo pelo fio
     const sy = window.scrollY, off = 200 * scale + 60;
-    const x = wx < viewW / 2 ? -off : viewW + off;
-    path = makePath(wx, wy, x, Math.max(sy + 40, Math.min(sy + innerHeight - 40, wy + rnd(-120, 120))));
+    path = makePath(wx, wy, clampX(webX() + (400 - ANCHOR.x) * scale), sy - off);
     setMode("wallWalk");
   }
 
@@ -1039,7 +1040,7 @@
       if (exiting || steal) return;
       hunt = { kind: "clean", prey: mess };
       cleanLeave();
-    } else if (webFree()) leaveWeb({ kind: "clean", prey: mess, afterClimb: cleanAway });
+    } else if (webFree()) leaveWeb({ kind: "clean", prey: mess, afterClimb: cleanLeave });
   }
 
   // na teia: larga o símbolo (se estiver com ele) e sobe até sumir da tela
@@ -1058,14 +1059,23 @@
     bounceA = 0; vel = 0;
     setMode("climb");
   }
+  // sai da teia sem sumir da tela: sobe um pouco pelo fio, solta o fio e já passa para a parede
+  // no mesmo ponto (mesmo tamanho, de cabeça para baixo como estava pendurada) — nada de reaparecer em outro lugar
+  let climbFrom = null, growK = 1;                                     // growK: transição suave do tamanho do fio para o da parede
   function climbWeb(dt) {
-    pos -= 560 * dt;
-    if (pos - window.scrollY + (460 - ANCHOR.y) * scale < -20) {     // sumiu por cima → desce pela parede
-      wx = clampX(webX() + 10); wy = window.scrollY - 150 * scale; rot = Math.PI;
-      if (hunt && hunt.afterClimb) hunt.afterClimb();
-      else if (rage && rage.phase === "climb") { setMode("rage"); rage.phase = "away"; rage.t = 0; play("cima"); }
-      else enterView();
-    }
+    if (climbFrom === null) climbFrom = pos;
+    pos -= 260 * dt;
+    const top = pos - window.scrollY + (108 - ANCHOR.y) * scale;
+    if (climbFrom - pos < 70 * scale && top > 10) return;
+    climbFrom = null;
+    wx = clampX(webX() + (400 - ANCHOR.x) * scale);
+    wy = pos + (280 - ANCHOR.y) * scale;                              // centro do corpo no desenho da teia
+    rot = Math.PI;                                                    // "cima" de cabeça para baixo = como estava no fio
+    growK = 0.6;                                                      // no fio ela é desenhada menor: cresce em ~0,4 s
+    vel = 0; bounceA = 0;
+    if (hunt && hunt.afterClimb) hunt.afterClimb();
+    else if (rage && rage.phase === "climb") { setMode("rage"); play("cima"); rageLeave("away"); }
+    else enterView();
   }
 
   // geometria do bote: onde ela tem de terminar (levando a presa) e de onde salta
@@ -1184,8 +1194,8 @@
     else if (hunt.phase === "away") {                                // fora da tela, pegando o pano
       if (hunt.t < 1.2) return;
       const off = 260 * scale, sy = window.scrollY;
-      wx = p.x < viewW / 2 ? -off : viewW + off;
-      wy = clamp(p.y + rnd(-140, 140), sy + 60, sy + innerHeight - 60);
+      wx = wx < viewW / 2 ? -off : viewW + off;                     // volta pelo mesmo lado por onde saiu
+      wy = clamp(wy, sy + 60, sy + innerHeight - 60);
       const dx = p.x - wx, dy = p.y - wy, d = Math.hypot(dx, dy) || 1, k = scale * CONFIG.size.limpando;
       hunt.P = { x: p.x - dx / d * CLEAN_REACH * k, y: p.y - dy / d * CLEAN_REACH * k };
       rot = Math.atan2(dx, -dy);
@@ -1459,10 +1469,10 @@
     rage.tx = wx < viewW / 2 ? -off : viewW + off; rage.ty = clamp(wy, sy + 60, sy + innerHeight - 60);
     playKeep("cima");
   }
-  function enterFromSide(near) {                                      // reaparece fora da tela, do lado mais perto do alvo
+  function enterFromSide() {                                          // volta pelo mesmo lado por onde saiu (nunca do outro)
     const off = 260 * scale, sy = window.scrollY;
-    wx = (near ? near.x : wx) < viewW / 2 ? -off : viewW + off;
-    wy = clamp(near ? near.y : sy + innerHeight / 2, sy + 80, sy + innerHeight - 80);
+    wx = wx < viewW / 2 ? -off : viewW + off;
+    wy = clamp(wy, sy + 80, sy + innerHeight - 80);
   }
 
   function updateRage(dt) {
@@ -1733,7 +1743,7 @@
       canvas.style.transform = `translate(${left}px, ${top}px) scaleY(${1 + off * 0.004})`;
     } else if (anim && REF[anim]) {
       const wall = mode === "wallWalk" || mode === "wallIdle" || mode === "hunt" || mode === "rage";
-      const k = CONFIG.size[anim] || 1, ref = REF[anim];
+      const k = (CONFIG.size[anim] || 1) * (wall ? growK : 1), ref = REF[anim];
       const cx = wall ? wx : gx, cy = (wall ? wy : gy) - sy;
       const squash = wall ? 0 : bounceOffset() * 0.006 + pet * 0.08;
       const r = mode === "wallWalk" || mode === "hunt" || mode === "rage" || steal ? rot : 0;

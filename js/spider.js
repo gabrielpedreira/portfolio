@@ -50,7 +50,7 @@
     returnAfter: 7000,    // ms depois de sumir para voltar pela parede
     wallSpeed: 310,       // px/s andando na parede
     // escala de cada animação em relação à teia (ajuste fino visual)
-    size: { brava: 0.68, empe: 0.68, virada: 0.68, andando: 0.5, cima: 1.0, parede: 1.05, wppteia: 0.82, espreita: 1, ataque: 1, levando: 1, levando_b: 1, levando_bt: 1, limpando: 1, pano: 1, apagando: 1, pichando: 1 },
+    size: { brava: 0.68, empe: 0.68, virada: 0.68, andando: 0.5, cima: 1.0, parede: 1.05, wppteia: 0.82, espreita: 1, ataque: 1, levando: 1, levando_b: 1, levando_bt: 1, limpando: 1, pano: 1, apagando: 1, escrevendo: 1, pichando: 1 },
     wppAfter: 120000,     // ms pendurada sem interação até buscar o WhatsApp (2 min)
     wallWppAfter: 180000, // ms andando na parede até sair e buscar o WhatsApp (3 min)
     shootSpeed: 520,      // px/s do fio descendo no disparo (devagar)
@@ -94,6 +94,7 @@
     limpando:       { src: S + "limpando.webp",         frames: 8,  fps: 6,  loop: true },   // faxina do besouro esmagado (cabeça para baixo)
     pano:           { src: S + "trazendo_pano.webp",    frames: 10, fps: 21, loop: true },   // andando com os panos (cabeça para cima)
     apagando:       { src: S + "apagando.webp",         frames: 8,  fps: 6,  loop: true },   // fúria: apagando as letras
+    escrevendo:     { src: S + "escrevendo.webp",       frames: 8,  fps: 6,  loop: true },   // depois da fúria: reescreve as letras com os lápis
     pichando:       { src: S + "pichando.webp",         frames: 6,  fps: 6,  loop: true },   // fúria: pichando com spray
     wpp:            { src: S + "wpp.png",               frames: 8,  fps: 8,  loop: true },
     wppteia:        { src: S + "wppteia.png",           frames: 4,  fps: 5,  loop: true },  // símbolo preso na teia (canvas próprio)
@@ -106,7 +107,7 @@
     cima: { x: 413, y: 263 }, parede: { x: 401, y: 205 },
     espreita: { x: 379, y: 250 }, ataque: { x: 379, y: 250 }, levando: { x: 379, y: 184 },
     levando_b: { x: 379, y: 174 }, levando_bt: { x: 379, y: 174 }, limpando: { x: 379, y: 250 }, pano: { x: 400, y: 262 },
-    apagando: { x: 379, y: 250 }, pichando: { x: 379, y: 174 }
+    apagando: { x: 379, y: 250 }, escrevendo: { x: 379, y: 250 }, pichando: { x: 379, y: 174 }
   };
   const BBOX = { brava: [201,166,609,459], cima: [216,58,611,468], parede: [205,26,598,384] };
 
@@ -1011,7 +1012,7 @@
   /* ---------- Caçada (mosca ou besouro) e faxina ---------- */
   const onWall = () => mode === "wallWalk" || mode === "wallIdle";
   const webFree = () => ["idle", "moving", "stopping", "pointing"].includes(mode);
-  const HEAD_DOWN = ["espreita", "ataque", "levando", "levando_b", "levando_bt", "limpando"];
+  const HEAD_DOWN = ["espreita", "ataque", "levando", "levando_b", "levando_bt", "limpando", "apagando", "escrevendo"];
 
   // a aranha vê um inseto? (os dois na mesma tela)
   function maybeHunt() {
@@ -1492,6 +1493,7 @@
       return;
     }
     if (r.phase === "clean") return runClean(dt);
+    if (r.phase === "write") return runWrite(dt);
     if (r.phase === "calm") {                                         // já calma, parada um instante
       rot += angDiff(0, rot) * Math.min(1, dt * 3);
       if (r.t > 3) {
@@ -1591,12 +1593,39 @@
     }
   }
 
+  // reescrever: passa os lápis por cima de cada letra apagada, na ordem de leitura, e a letra volta a aparecer
+  function startWrite() {
+    const r = rage, sy = window.scrollY;
+    r.phase = "write"; r.task = null; r.t = 0; r.lastY = null;
+    r.toWrite = r.hidden.filter((sp) => sp.isConnected && sp.classList.contains("is-erased")).map((sp) => {
+      const b = sp.getBoundingClientRect(); return { sp, x: b.left + b.width / 2, y: b.top + b.height / 2 + sy };
+    }).filter((o) => o.x || o.y);
+    // linhas de cima para baixo; cada linha da esquerda para a direita
+    r.toWrite.sort((a, b) => (Math.abs(a.y - b.y) < 12 ? a.x - b.x : a.y - b.y));
+    playKeep("pano");
+  }
+  function runWrite(dt) {
+    const r = rage, k = kSp();
+    if (!r.toWrite.length) { restoreSpans(1e9); r.phase = "calm"; r.t = 0; playKeep("parede"); return; }
+    const L = r.toWrite[0], newLine = r.lastY === null || Math.abs(L.y - r.lastY) > 12;
+    const want = -Math.PI / 2;                                         // escreve da esquerda para a direita
+    const o = rotOff(CLOTH, want, k), P = { x: L.x - o.x, y: L.y - o.y };
+    if (newLine && Math.hypot(P.x - wx, P.y - wy) > 30) {               // vai até o começo da próxima linha
+      if (anim !== "pano") playKeep("pano");
+      moveTo(P.x, P.y, CONFIG.wallSpeed * 1.6, dt, true);
+      return;
+    }
+    if (anim !== "escrevendo") playKeep("escrevendo");
+    rot += angDiff(want, rot) * Math.min(1, dt * 6);
+    if (moveTo(P.x, P.y, 150, dt, false)) {
+      L.sp.classList.remove("is-erased");
+      r.toWrite.shift(); r.lastY = L.y;
+    }
+  }
   function runClean(dt) {
     const r = rage, k = kSp();
-    r.restoreAcc += dt * r.restoreRate;
-    if (r.restoreAcc >= 1) { const n = r.restoreAcc | 0; r.restoreAcc -= n; restoreSpans(n); }
     if (!r.task) {
-      if (!r.clean.length) { restoreSpans(1e9); r.phase = "calm"; r.t = 0; playKeep("parede"); return; }
+      if (!r.clean.length) { startWrite(); return; }           // tudo limpo: agora reescreve o texto com os lápis
       // o mais perto primeiro
       const pos = (c) => (c.type === "face" ? faceCenter() : c.g || c.o);
       r.clean.sort((a, b) => Math.hypot(pos(a).x - wx, pos(a).y - wy) - Math.hypot(pos(b).x - wx, pos(b).y - wy));

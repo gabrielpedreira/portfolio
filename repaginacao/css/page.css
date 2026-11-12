@@ -1,0 +1,173 @@
+/* ==========================================================
+   CSS da página: só o que fica dentro dos visuais e o kit não tem.
+   ========================================================== */
+:root { --ink-panel: #1b1916; }
+
+/* anel de foco na tinta da página (o --action é âmbar, claro demais sobre o papel) */
+:focus-visible { outline-color: var(--ink); }
+
+/* idioma */
+.lang-toggle { font: 600 13px/1 var(--font-text); letter-spacing: .06em; min-width: 44px; min-height: 44px; justify-content: center;
+  background: none; border: 1px solid var(--line, rgba(27,25,22,.18)); border-radius: var(--r-sm, 8px); cursor: pointer; }
+.lang-toggle:hover { border-color: currentColor; }
+
+/* botão com cara de link (abre o lightbox) */
+.link--btn { background: none; border: 0; padding: 0; cursor: pointer; font: inherit; font-weight: 500; text-decoration: underline;
+  text-decoration-color: color-mix(in oklab, currentColor 35%, transparent); text-underline-offset: .2em; min-height: 44px; }
+
+/* painel escuro do menu e do logo do jogo */
+.panel--ink, .frame--ink { background: var(--ink-panel); }
+.menu-card__logo.frame__img { object-fit: contain; padding: 20px; }
+
+/* Sobre: retrato (alvo da fúria da aranha) */
+#sobre .hero__photo { margin: 0; height: min(640px, calc(100svh - 230px)); }
+#sobre .hero__photo .frame__img { object-position: 50% 30%; }
+
+/* Infestação */
+.facts-list { list-style: none; padding: 0; margin: 0; display: grid; gap: var(--s-3); }
+.facts-list li { padding-top: var(--s-3); border-top: 1px solid color-mix(in oklab, var(--ink) 14%, transparent); }
+.facts-list b { font-weight: 600; margin-right: .35em; }
+#jogo .frame--ink { padding: 0; aspect-ratio: auto; min-height: 420px; height: min(708px, calc(100svh - 192px)); }
+.frame > .logo-stage { position: absolute; inset: 0; max-width: none; display: grid; place-items: center; padding: 8%; background: none; border: 0; cursor: zoom-in; }
+.logo-stage img { width: 100%; height: auto; image-rendering: pixelated; transition: transform var(--dur, .3s) var(--ease, ease); }
+@media (hover: hover) and (pointer: fine) { .logo-stage:hover img { transform: scale(1.03); } }
+
+/* miniaturas que abrem o lightbox */
+.works { row-gap: var(--s-5); }
+.work { position: relative; display: block; padding: 0; border: 0; border-radius: var(--r-md); overflow: hidden; cursor: zoom-in;
+  background: none; height: var(--w-h, 300px); }
+.work > img { background: var(--surface); display: block; box-sizing: border-box; width: 100%; height: 100%; object-fit: cover; object-position: 50% 0; transition: transform 500ms cubic-bezier(.22, 1, .36, 1); }
+@media (hover: hover) and (pointer: fine) { .work:hover > img { transform: scale(1.04); } }
+.work:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
+#jogo .works { --w-h: min(708px, calc(100svh - 192px)); }
+#conceptarts .works { --w-h: min(560px, calc(100svh - 340px)); }
+#conceptarts .works--three { --w-h: min(708px, calc(100svh - 192px)); }
+.tiles--art .work > img { background-color: #1b1916; }
+.tiles--art .work > img { object-fit: contain; object-position: 50% 50%; }
+#ilustracoes .works { --w-h: min(620px, calc(100svh - 280px)); }
+#ilustracoes .work > img { object-fit: cover; object-position: 50% 20%; }
+.tiles--pixel { --w-h: 440px; }
+.tiles--pixel .work:last-child > img { padding: var(--s-2); }
+.tiles--pixel .work > img { object-fit: contain; image-rendering: pixelated; padding: var(--s-4); }
+
+/* A aranha: frase + tesoura e mata-moscas */
+#aranha .mo-wh__text { margin-top: var(--s-5); }
+#aranha { --accent: #9a5b14; }   /* o âmbar dos olhos, escurecido para ler 4.5:1 sobre o papel */
+.tools { margin-top: var(--s-8); }
+.tool { display: flex; align-items: center; gap: var(--s-6); padding: var(--s-5) var(--s-6); border-radius: var(--r-md);
+  background: var(--bg); cursor: pointer; transition: transform 240ms cubic-bezier(.22, 1, .36, 1), box-shadow 240ms; position: relative; }
+.tool:not(.is-got):hover { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(27, 25, 22, .08); }
+.tool.is-got { cursor: default; }
+.tool__btn { flex: 0 0 auto; width: 64px; height: 132px; padding: 0; border: 0; background: none; cursor: pointer; position: relative;
+  transition: transform 300ms cubic-bezier(.22, 1, .36, 1); }
+.tool__btn img { width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 6px 8px rgba(0,0,0,.25)); }
+.tool:not(.is-got):hover .tool__btn, .tool__btn:focus-visible { transform: translateY(-6px) rotate(-12deg) scale(1.06); }
+.tool__btn:focus-visible { outline: 2px solid var(--ink); outline-offset: 4px; border-radius: 8px; }
+.tool__words { display: grid; gap: var(--s-2); }
+.tool__words h3 { font: 500 var(--t-lead)/1.3 var(--font-text); }
+.tool__msg { color: var(--muted); }
+.tool.is-got .tool__msg { color: var(--ink); }
+.tool.is-got .tool__btn { animation: toolCollect .7s cubic-bezier(.4, 0, .2, 1) forwards; pointer-events: none; }
+.tool__btn[hidden] { display: none; }
+@keyframes toolCollect { 35% { transform: translateY(-10px) rotate(-18deg) scale(1.2); opacity: 1; } 100% { transform: translateY(-40px) scale(.3); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .tool.is-got .tool__btn { animation: none; } .tool, .tool__btn { transition: none; } }
+
+/* Programas */
+.projects { --p-h: 300px; }
+.panel--shot { position: relative; display: block; width: 100%; padding: 0; border: 0; cursor: zoom-in; overflow: hidden; background: var(--surface); }
+.panel--shot .frame__img { object-position: 0 0; transition: transform 500ms cubic-bezier(.22, 1, .36, 1); }
+@media (hover: hover) and (pointer: fine) { .panel--shot:hover .frame__img { transform: scale(1.03); } }
+
+/* Esculturas: as fotos têm fundo escuro, então aparecem inteiras sobre ele */
+#esculturas .mo-ph__pic { background: #15161a; }
+#esculturas .mo-ph__pic > img { object-fit: contain; }
+#esculturas.is-live .mo-ph__stage { background: #15161a; }
+
+/* Ferramentas */
+.stack-groups h4 { font: 500 var(--t-lead)/1.3 var(--font-text); }
+.stack-groups { align-content: start; }
+@media (min-width: 1024px) { .stack-groups .ic-chip-row { flex-direction: column; align-items: flex-start; gap: 10px; } .stack-groups > div + div { padding-top: var(--s-4); } }
+.ic-chip--study { border-style: dashed; }
+.ic-chip--study::after { content: "estudando"; font-size: 12px; color: var(--muted); margin-left: 4px; }
+html[lang="en"] .ic-chip--study::after { content: "learning"; }
+
+/* Rodapé: o chão de madeira em que a aranha anda (fundo do rodapé; #floor marca a linha do chão) */
+footer.closing { --floor-h: clamp(64px, 6vw, 96px); position: relative;
+  background-image: linear-gradient(to bottom, var(--bg) 0, transparent 45%), url("../assets/img/chao.png");
+  background-size: 100% var(--floor-h), 100% var(--floor-h); background-position: center bottom, center bottom; background-repeat: no-repeat; }
+footer.closing > .wrap { padding-bottom: var(--floor-h); }
+.floor-mark { position: absolute; left: 0; bottom: calc(var(--floor-h) / 2); width: 0; height: 0; pointer-events: none; }
+
+/* link roubado pela aranha (clone de um link do rodapé, pendurado na teia) */
+.link--stolen { display: inline-flex; align-items: center; min-height: 44px; padding: 0 18px; border-radius: 10px; white-space: nowrap;
+  background: #1b1916; color: #e8e6e1 !important; font: 500 15px/1 var(--font-text); text-decoration: none; }
+
+/* ---------- Lightbox ---------- */
+html.lb-open { overflow: hidden; }
+.lightbox { position: fixed; inset: 0; z-index: 100; display: grid; grid-template-columns: minmax(0, 1fr) 400px;
+  background: rgba(17, 16, 14, .96); color: #e8e6e1; animation: lbIn 220ms ease both; }
+.lightbox[hidden] { display: none; }
+@keyframes lbIn { from { opacity: 0; } }
+.lb__stage { position: relative; display: grid; place-items: center; padding: 56px 72px; min-height: 0; overflow: auto; }
+.lb__img { max-width: 100%; max-height: calc(100svh - 112px); width: auto; height: auto; border-radius: 6px; }
+.lightbox.is-pixel .lb__img { image-rendering: pixelated; min-height: min(60svh, 512px); object-fit: contain; }
+.lb__nav, .lb__close { position: absolute; display: grid; place-items: center; width: 48px; height: 48px; border-radius: 50%;
+  border: 1px solid rgba(232, 230, 225, .2); background: rgba(17, 16, 14, .6); color: #e8e6e1; cursor: pointer; transition: border-color 200ms, background 200ms; }
+.lb__nav svg, .lb__close svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.lb__nav:hover, .lb__close:hover { border-color: #e8a55a; background: rgba(232, 165, 90, .12); }
+.lb__nav:focus-visible, .lb__close:focus-visible, .lb__links :focus-visible { outline: 2px solid #e8a55a; outline-offset: 3px; }
+.lb__nav[hidden] { display: none; }
+.lb__prev { left: 16px; top: 50%; translate: 0 -50%; }
+.lb__next { right: 16px; top: 50%; translate: 0 -50%; }
+.lb__close { top: 16px; right: 16px; z-index: 2; }
+.lb__count { position: absolute; left: 50%; bottom: 18px; translate: -50% 0; font: 500 13px/1 var(--font-text); color: #a9a59f; font-variant-numeric: tabular-nums; }
+.lb__info { overflow: auto; padding: 72px 40px 48px; background: #1b1916; border-left: 1px solid rgba(232, 230, 225, .1); display: grid; align-content: start; gap: 16px; }
+.lb__status { font: 500 13px/1 var(--font-text); color: #e8a55a; letter-spacing: .02em; }
+.lb__status[hidden] { display: none; }
+.lb__title { font: var(--display-weight) 36px/1.1 var(--font-display); letter-spacing: var(--display-tracking); color: #e8e6e1; }
+.lb__desc { display: grid; gap: 12px; color: #c9c5bf; font-size: 16px; line-height: 1.6; }
+.lb__desc h3 { margin-top: 8px; font: 600 14px/1.3 var(--font-text); color: #e8e6e1; }
+.lb__desc ul { margin: 0; padding-left: 1.1em; display: grid; gap: 4px; }
+.lb__tags { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.lb__tags li { font: 500 12px/1 var(--font-text); padding: 7px 10px; border-radius: 999px; border: 1px solid rgba(232, 230, 225, .18); color: #c9c5bf; }
+.lb__links { display: flex; flex-wrap: wrap; gap: 10px; }
+.lb__links .btn--primary { background: #e8a55a; color: #111; }
+.lb__links .btn--secondary { color: #e8e6e1; border-color: rgba(232, 230, 225, .3); }
+@media (max-width: 899px) {
+  .lightbox { grid-template-columns: 1fr; grid-template-rows: auto auto; overflow: auto; }
+  .lb__stage { padding: 72px 16px 56px; overflow: visible; }
+  .lb__img { max-height: 70svh; }
+  .lb__prev { left: 8px; } .lb__next { right: 8px; }
+  .lb__info { padding: 28px 24px 48px; border-left: 0; border-top: 1px solid rgba(232, 230, 225, .1); }
+  .lb__close { position: fixed; }
+}
+
+/* telas menores */
+@media (max-width: 1023px) {
+  #sobre .hero__photo { height: 420px; margin-top: var(--s-7); }
+  #jogo .frame--ink { min-height: 0; height: auto; --ratio: 36%; margin-top: var(--s-7); }
+  .tools > .tool { grid-column: 1 / -1; }
+  .works > .work { grid-column: span 6; }
+  .works > .stack-4 { grid-column: 1 / -1; }
+  .works, #jogo .works, #conceptarts .works, #conceptarts .works--three, #ilustracoes .works { --w-h: 260px; }
+  .tiles--pixel { --w-h: 260px; }
+  #jogo .works { --w-h: 220px; margin-top: var(--s-6); }
+  .stack-groups > div { grid-column: span 6; }
+  .projects > .card { grid-column: 1 / -1; }
+}
+@media (max-width: 639px) {
+  #sobre .about__text > p:not(.t-lead) { font-size: 15px; }
+  #sobre .hero__photo { height: 270px; margin-top: var(--s-6); }
+  .stack-groups .t-small { display: none; }
+  .stack-groups .ic-chip-row { gap: 6px; }
+  .stack-groups .ic-chip--lg { height: 32px; font-size: 14px; padding: 0 10px 0 8px; }
+  .stack-groups { row-gap: var(--s-5); }
+  .works, #jogo .works, #conceptarts .works, #conceptarts .works--three, #ilustracoes .works { --w-h: 260px; }
+  #jogo .works { --w-h: 220px; }
+  #conceptarts .works { --w-h: 290px; }
+  #conceptarts .works--three { --w-h: 300px; }
+  .tiles--pixel { --w-h: 240px; }
+  .stack-groups > div { grid-column: 1 / -1; }
+  .tool { padding: var(--s-4); gap: var(--s-4); }
+  .tool__btn { width: 48px; height: 100px; }
+}

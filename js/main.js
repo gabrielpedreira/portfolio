@@ -440,3 +440,84 @@
   $("#year").textContent = new Date().getFullYear();
   applyLang();
 })();
+
+/* ---------- Retrato pintado: o desenho aparece sob um "pincel" invisível ----------
+   Ao passar o mouse (ou tocar) no retrato, um círculo de bordas suaves revela
+   assets/img/gabriel_desenho.webp (mesma silhueta, alinhado à foto). Cada pincelada
+   fica 2 s e depois some devagar, voltando à foto. */
+(() => {
+  const fig = document.querySelector(".hero__photo");
+  const photo = fig && fig.querySelector("img:not(.photo-pix)");
+  if (!fig || !photo) return;
+  const HOLD = 2000, FADE = 1100, MAX = 700;
+  const art = new Image();
+  art.decoding = "async";
+  art.src = "assets/img/gabriel_desenho.webp";
+  const cv = document.createElement("canvas");
+  cv.className = "photo-paint";
+  cv.setAttribute("aria-hidden", "true");
+  photo.after(cv);
+  const ctx = cv.getContext("2d");
+  const mask = document.createElement("canvas"), mctx = mask.getContext("2d");
+  const brush = document.createElement("canvas"), bctx = brush.getContext("2d");
+  let W = 0, H = 0, dpr = 1, R = 50, stamps = [], raf = 0, last = null;
+
+  function size() {
+    const r = photo.getBoundingClientRect();
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    W = Math.round(r.width * dpr); H = Math.round(r.height * dpr);
+    if (!W || !H) return;
+    cv.width = mask.width = W; cv.height = mask.height = H;
+    R = Math.max(34, r.width * 0.13) * dpr;                 // raio do pincel
+    const d = Math.ceil(R * 2);
+    brush.width = brush.height = d;
+    const g = bctx.createRadialGradient(d / 2, d / 2, 0, d / 2, d / 2, d / 2);
+    g.addColorStop(0, "rgba(0,0,0,1)");
+    g.addColorStop(0.45, "rgba(0,0,0,.85)");
+    g.addColorStop(1, "rgba(0,0,0,0)");
+    bctx.clearRect(0, 0, d, d); bctx.fillStyle = g; bctx.fillRect(0, 0, d, d);
+  }
+  function stamp(x, y) {
+    const now = performance.now();
+    if (last) {                                             // preenche o traço entre dois pontos
+      const dx = x - last.x, dy = y - last.y, dist = Math.hypot(dx, dy), step = R * 0.3;
+      for (let s = step; s < dist; s += step) stamps.push({ x: last.x + dx * s / dist, y: last.y + dy * s / dist, t: now });
+    }
+    stamps.push({ x, y, t: now });
+    if (stamps.length > MAX) stamps.splice(0, stamps.length - MAX);
+    last = { x, y };
+    if (!raf) raf = requestAnimationFrame(draw);
+  }
+  function draw(now) {
+    raf = 0;
+    stamps = stamps.filter((s) => now - s.t < HOLD + FADE);
+    mctx.clearRect(0, 0, W, H);
+    for (const s of stamps) {
+      const age = now - s.t;
+      mctx.globalAlpha = age < HOLD ? 1 : 1 - (age - HOLD) / FADE;
+      mctx.drawImage(brush, s.x - brush.width / 2, s.y - brush.height / 2);
+    }
+    mctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = "source-over";
+    ctx.clearRect(0, 0, W, H);
+    if (stamps.length && art.complete && art.naturalWidth) {
+      ctx.drawImage(art, 0, 0, W, H);                       // mesma proporção 5:6 da foto
+      ctx.globalCompositeOperation = "destination-in";
+      ctx.drawImage(mask, 0, 0);
+      ctx.globalCompositeOperation = "source-over";
+    }
+    if (stamps.length) raf = requestAnimationFrame(draw);
+  }
+  function at(e) {
+    const r = photo.getBoundingClientRect();
+    if (!W) size();
+    stamp((e.clientX - r.left) * dpr, (e.clientY - r.top) * dpr);
+  }
+  fig.addEventListener("pointerenter", (e) => { last = null; at(e); });
+  fig.addEventListener("pointermove", at);
+  fig.addEventListener("pointerdown", (e) => { last = null; at(e); });
+  fig.addEventListener("pointerleave", () => (last = null));
+  addEventListener("resize", () => { size(); stamps = []; });
+  if (art.complete) size(); else art.addEventListener("load", size, { once: true });
+  size();
+})();

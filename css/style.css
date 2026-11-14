@@ -810,7 +810,7 @@ x-e { transition: opacity .7s ease, visibility 0s; }   /* letra apagada pela ara
 x-e.is-erased { opacity: 0; visibility: hidden; transition: opacity .35s ease, visibility 0s linear .35s; }
 .gfx-layer { position: absolute; left: 0; top: 0; width: 0; height: 0; z-index: 57; pointer-events: none; }
 .gfx-layer img { position: absolute; max-width: none; pointer-events: none; }
-.hero__photo img.photo-pix { position: absolute; left: 0; top: 0; z-index: 1; opacity: 0; pointer-events: none; }
+.hero__photo img.photo-pix { position: absolute; left: 0; top: 0; z-index: 2; opacity: 0; pointer-events: none; }
 
 /* tesoura e mata-moscas: a caixa inteira é clicável */
 .scissors:not(.is-got) { cursor: pointer; transition: border-color .25s, background .25s, box-shadow .25s, transform .25s; }
@@ -820,3 +820,7 @@ x-e.is-erased { opacity: 0; visibility: hidden; transition: opacity .35s ease, v
   filter: drop-shadow(0 0 10px rgba(232,165,90,.65)) drop-shadow(0 0 22px rgba(232,165,90,.3)); }
 .scissors:not(.is-got):active { transform: translateY(0) scale(.99); }
 .scissors.is-got { cursor: default; }
+
+/* retrato pintado: o desenho revelado pelo "pincel" (js/main.js) fica entre a foto e a pichação da aranha */
+.hero__photo .photo-paint { position: absolute; inset: 0; z-index: 1; width: 100%; height: 100%; border-radius: 20px; pointer-events: none; }
+.hero__photo figcaption { z-index: 3; }

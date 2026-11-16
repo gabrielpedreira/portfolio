@@ -283,7 +283,7 @@
     const box = $(sel);
     box?.addEventListener("click", (e) => { if (!box.classList.contains("is-got") && !e.target.closest(".scissors__btn")) btn?.click(); });
   });
-  // logo "GP." volta para a home: fecha a categoria aberta e sobe para o topo
+  // logo "Portfolio." volta para a home: fecha a categoria aberta e sobe para o topo
   $(".nav__logo")?.addEventListener("click", (e) => {
     e.preventDefault();
     if (activeFilter) openCategory(null, false);
